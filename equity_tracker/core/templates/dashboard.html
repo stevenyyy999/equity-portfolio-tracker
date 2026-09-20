@@ -1,0 +1,839 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block content %}
+
+{% if has_portfolio %}
+    <div class="w-full mx-auto lg:px-12 px-4 pt-5 pb-16 flex flex-col gap-8 animate-fade-in">
+        {% if messages %}
+            {% for message in messages %}
+                {% if "portfolio-delete-success" in message.tags %}
+                <div id="portfolio-delete-success-popup" class="fixed right-8 bottom-8 z-50 rounded-lg border px-5 py-4 shadow-lg border-green-200 bg-green-50 text-green-800">
+                    {{ message }}
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+
+        <div class="flex justify-between items-end gap-6">
+            <div>
+                <div class="text-4xl font-semibold">Dashboard</div>
+                <p class="mt-2 text-base text-gray-500">Track your portfolios, holdings, and recent transactions.</p>
+            </div>
+            <div class="text-right">
+                <p class="text-xl text-gray-500 font-semibold pt-5">Total</p>
+                <p class="text-3xl font-bold">{{ dashboard_portfolios_total_display }}</p>
+            </div>
+        </div>
+
+        <div class="w-full rounded-2xl bg-white p-6 shadow-lg border border-4 border-gray-300">
+            <div class="mb-4 flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-semibold text-gray-900">Portfolio Value Over Time</h2>
+                    <p class="text-sm text-gray-500">Compare how each portfolio has moved based on saved closing prices.</p>
+                </div>
+            </div>
+            <div >
+                <!-- for actual graph -->
+                {% if dashboard_portfolio_chart_labels %}
+                    <div class="flex gap-2 mb-3">
+                        <button data-period="5 days"
+                            class="duration-btn px-3 py-1 font-semibold rounded-full border border-gray-300 bg-gray-100 text-gray-600 shadow-sm hover:bg-gray-200 transition active:scale-95">
+                            <span class="sm:hidden">5D</span>
+                            <span class="hidden sm:inline">5 days</span>
+                        </button>
+                        <button data-period="1 month"
+                            class="duration-btn px-3 py-1 font-semibold rounded-full border border-blue-900 bg-blue-900 text-white shadow-sm transition active:scale-95">
+                            <span class="sm:hidden">1M</span>
+                            <span class="hidden sm:inline">1 month</span>
+                        </button>
+                        <button data-period="6 months"
+                            class="duration-btn px-3 py-1 font-semibold rounded-full border border-gray-300 bg-gray-100 text-gray-600 shadow-sm hover:bg-gray-200 transition active:scale-95">
+                            <span class="sm:hidden">6M</span>
+                            <span class="hidden sm:inline">6 months</span>
+                        </button>
+                        <button data-period="1 year"
+                            class="duration-btn px-3 py-1 font-semibold rounded-full border border-gray-300 bg-gray-100 text-gray-600 shadow-sm hover:bg-gray-200 transition active:scale-95">
+                            <span class="sm:hidden">1Y</span>
+                            <span class="hidden sm:inline">1 year</span>
+                        </button>
+                    </div>
+                    <div class="relative h-96 sm:h-64">
+                        <canvas id="dashboardPortfolioChart"></canvas>
+                    </div>
+                {% else %}
+                    <div class="flex h-full items-center justify-center rounded-xl bg-gray-100 text-gray-500 p-3">
+                        Add trades and saved equity prices to see the comparison chart.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="rounded-2xl bg-white p-6 shadow-lg border border-4 border-gray-300">
+            <div class="mb-5 flex items-center justify-between gap-4">
+                <div>
+                    <!-- List out all portfolios attached to the user profile -->
+                    <h2 class="text-2xl font-semibold text-gray-900">Portfolio List</h2>
+                    <p class="mt-1 text-sm text-gray-500">
+                        <!-- No portfolio limit -->
+                        {% if max_portfolio_count == -1 %}
+                            Manage all of your portfolios in one place.
+                        <!-- Portfolio limit in place -->
+                        {% else %}
+                            You are using {{ portfolio_count }} of {{ max_portfolio_count }} available portfolios. Need more? 
+                            <a href="{% url 'subscriptions-home' %}" class="font-semibold text-indigo-600 hover:text-indigo-800 transition">
+                                Upgrade to premium
+                            </a>
+                            for unlimited portfolios.
+                        {% endif %}
+                    </p>
+                </div>
+                <!-- Button to create new portfolio -->
+                <!-- For free users, if the limit reached, grey out the button -->
+                {% if portfolio_limit_reached %}
+                    <span
+                        class="rounded-lg bg-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 shadow-sm cursor-not-allowed"
+                        aria-disabled="true"
+                        title="Portfolio limit reached">
+                        Limit reached
+                    </span>
+                <!-- Otherwise, all good, let them access the create button -->
+                {% else %}
+                    <a href="{% url 'create_portfolio_page' %}"
+                       class="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black shadow-sm transition hover:bg-yellow-500">
+                        + Add a New Portfolio
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Portfolio quick summary view -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b bg-blue-900 text-white">
+                            <!-- Column titles -->
+                            <th class="w-32 p-3 rounded-tl-lg text-center">Breakdown</th>
+                            <th class="p-3">Name</th>
+                            <th class="p-3">Description</th>
+                            <th class="p-3 text-right">Current Value</th>
+                            <th class="p-3 text-right">Profit / Loss</th>
+                            <th class="p-3">Date Created</th>
+                            <th></th>
+                            <th class="p-3 rounded-tr-lg"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Loop through each portfolio, then display their details in each row -->
+                        {% for portfolio in user_portfolio %}
+                        <tr class="border-b cursor-pointer transition hover:bg-gray-50"
+                            data-portfolio-summary-row
+                            data-portfolio-id="{{ portfolio.id }}"
+                            data-realised-pnl="{{ portfolio.dashboard_realised_pnl_value }}"
+                            data-portfolio-url="{% url 'portfolio_detail' portfolio.id %}"
+                            onclick="window.location=this.dataset.portfolioUrl">
+                            <td class="p-3 text-center">
+                                <!-- Button allows user to view summary of child stocks -->
+                                <button type="button"
+                                        class="inline-flex items-center justify-center whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+                                        onclick="togglePortfolioBreakdown(event, '{{ portfolio.id }}')"
+                                        aria-expanded="false"
+                                        aria-controls="portfolio-breakdown-{{ portfolio.id }}">
+                                    <span data-toggle-text>View stocks</span>
+                                </button>
+                            </td>
+                            <td class="p-3 font-medium truncate max-w-xs">
+                                {{ portfolio.name }}
+                            </td>
+                            <td class="p-3 truncate max-w-xs">
+                                {% if portfolio.description %}
+                                    {{ portfolio.description }}
+                                {% else %}
+                                    <span class="text-gray-500">No description</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-3 text-right font-medium text-gray-900" data-portfolio-current-value>
+                                {{ portfolio.dashboard_current_value_display }}
+                            </td>
+                            <td class="p-3 text-right font-medium {{ portfolio.dashboard_profit_class }}" data-portfolio-profit>
+                                {{ portfolio.dashboard_profit_display }}
+                            </td>
+                            <td class="p-3 text-gray-700">{{ portfolio.creation_date }}</td>
+                            <!-- Button to enter portfolio settings -->
+                            <td class="p-3 text-right">
+                                {% if portfolio.is_default %}
+                                    <div class="font-semibold text-yellow-600">DEFAULT</div>
+                                {% endif %}
+                            </td>
+                            <td class="p-3 text-right">
+                                <a href="{% url 'portfolio_settings' portfolio.id %}" class="inline-flex rounded-md p-1 hover:bg-gray-100" onclick="event.stopPropagation()">
+                                     <img src="{% static 'icons/settings-outline.svg' %}" 
+                                    class="h-6 w-6" alt="portfolio settings icon">
+                                </a>
+                            </td>
+                        </tr>
+                        <!-- The stock breakdown UI for each portfolio -->
+                        <tr id="portfolio-breakdown-{{ portfolio.id }}" class="hidden border-b bg-gray-50">
+                            <td colspan="8" class="px-6 py-5">
+                                <div class="rounded-xl border border-blue-100 bg-white p-4 shadow-sm">
+                                    <div class="mb-4 flex items-center gap-3">
+                                        <div class="h-10 w-1 rounded-full bg-blue-900"></div>
+                                        <div>
+                                            <div class="text-sm font-semibold uppercase tracking-wide text-gray-700">Current Holdings</div>
+                                        </div>
+                                    </div>
+                                    <!-- If we have holdings then... -->
+                                    {% if portfolio.dashboard_holdings %}
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full text-left text-sm">
+                                                <!-- Create a table row with these headers -->
+                                                <thead>
+                                                    <tr class="border-b bg-blue-50 text-gray-700">
+                                                        <th class="rounded-tl-lg p-3">Stock</th>
+                                                        <th class="p-3 text-right">Quantity</th>
+                                                        <th class="rounded-tr-lg p-3 text-right">Profit / Loss</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <!-- For each holding, we grab their relevant value and display as a row -->
+                                                    {% for holding in portfolio.dashboard_holdings %}
+                                                        <!-- In the table row we grab all relevant portfolio data needed by the javascript below -->
+                                                        <tr class="border-b last:border-b-0"
+                                                            data-dashboard-holding-row
+                                                            data-portfolio-id="{{ portfolio.id }}"
+                                                            data-equity-ticker="{{ holding.ticker }}"
+                                                            data-quantity="{{ holding.quantity }}"
+                                                            data-cost-basis="{{ holding.cost_basis_value }}"
+                                                            data-current-value="{{ holding.current_value_value }}"
+                                                            data-profit-value="{{ holding.profit_value }}"
+                                                            data-needs-refresh="{% if holding.closing_price_needs_refresh %}true{% else %}false{% endif %}"
+                                                            data-update-url="{{ holding.closing_price_update_url }}">
+                                                            <!-- Displays -->
+                                                            <td class="p-3">
+                                                                <div class="font-medium">{{ holding.ticker }}</div>
+                                                                <div class="text-gray-500">{{ holding.name }}</div>
+                                                            </td>
+                                                            <td class="p-3 text-right">{{ holding.quantity }} shares</td>
+                                                            <td class="p-3 text-right font-medium {{ holding.profit_class }}" data-dashboard-holding-profit-cell>
+                                                                {{ holding.profit_display }}
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="rounded-lg bg-gray-50 px-4 py-5 text-sm text-gray-500">
+                                            No current holdings yet. Add trades to see the stock-level breakdown here.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- The panel for recent transactions -->
+        <div class="rounded-2xl bg-white p-6 shadow-lg border border-4 border-gray-300">
+            <div class="mb-5 flex items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-semibold text-gray-900">Recent Transactions</h2>
+                    <p class="mt-1 text-sm text-gray-500">Your top five latest buys and sells across all portfolios.</p>
+                </div>
+                <a href="{% url 'transactions:transactions_history' %}"
+                   class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50">
+                    View Full History
+                </a>
+            </div>
+
+            <!-- Only display if the user has actually made a transaction -->
+            {% if has_trades %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="border-b bg-gray-100 text-gray-700">
+                                <th class="p-3 rounded-tl-lg">Ticker</th>
+                                <th class="p-3">Portfolio</th>
+                                <th class="p-3">Date</th>
+                                <th class="p-3">Type</th>
+                                <th class="p-3 text-right">Quantity</th>
+                                <th class="p-3 text-right">Price</th>
+                                <th class="p-3 rounded-tr-lg text-right">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in recent_trades %}
+                                <tr class="border-b last:border-b-0">
+                                    <td class="p-3 font-medium">{{ transaction.equity.ticker }}</td>
+                                    <td class="p-3">
+                                        {% if transaction.portfolio %}
+                                            {{ transaction.portfolio.name }}
+                                        {% else %}
+                                            <span class="text-gray-500">No portfolio</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="p-3">{{ transaction.trade_date }}</td>
+                                    <td class="p-3">
+                                        {% if transaction.transaction_type == "BUY" %}
+                                            <span class="text-green-600">{{ transaction.transaction_type }}</span>
+                                        {% else %}
+                                            <span class="text-red-600">{{ transaction.transaction_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="p-3 text-right text-black">{{ transaction.quantity }}</td>
+                                    <td class="p-3 text-right">{{ transaction.price_display }}</td>
+                                    <td class="p-3 text-right text-black">{{ transaction.value_display }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="rounded-xl bg-gray-50 px-5 py-8 text-center text-gray-500">
+                    Add your first trade to see recent transaction history on the dashboard.
+                </div>
+            {% endif %}
+        </div>
+
+
+        <!-- 'Add a Transaction' button -->
+        <button onclick="document.getElementById('addTransactionModal').classList.remove('hidden')"
+            class="fixed bottom-8 right-8 bg-blue-700 text-white px-5 py-3 rounded-full shadow-lg hover:bg-blue-800 transition z-40">
+            + Add Transaction
+        </button>
+
+        {% include "transactions/add_transaction_popup.html" %}
+
+
+
+
+        
+    </div>
+
+{% else %}
+    {% if not has_portfolios %}
+    <div class="flex flex-col">
+        <div class="w-full mx-auto px-8 py-10 flex flex-col items-center">
+            <div class="text-4xl font-bold pt-4 pb-6 leading-tight text-center">
+                Add your first Portfolio!
+            </div> 
+            <a href="{% url 'create_portfolio_page' %}" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                Create Portfolio
+            </a>
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
+    
+
+<!-- this for user that hasn't added any trades yet -->
+<!-- add dashboard for user that has recorded one or more trades -->
+
+{{ dashboard_portfolio_chart_labels|json_script:"dashboard_portfolio_chart_labels" }}
+{{ dashboard_portfolio_chart_datasets|json_script:"dashboard_portfolio_chart_datasets" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // This is the function used to expand the portfolio so the child stocks can be viewed
+    function togglePortfolioBreakdown(event, portfolioId) {
+        // Currently the whole portfolio has an onclick to navigate to the portfolio's own page
+        // so we need to stop the user's click event from triggering that onclick
+        event.stopPropagation();
+
+        const breakdownRow = document.getElementById(`portfolio-breakdown-${portfolioId}`);
+        const isHidden = breakdownRow.classList.toggle("hidden");
+        const toggleText = event.currentTarget.querySelector("[data-toggle-text]");
+        const toggleButton = event.currentTarget;
+
+        // Grab the View stocks button clicked, then update its expand state and label
+        toggleButton.setAttribute("aria-expanded", String(!isHidden));
+        toggleText.textContent = isHidden ? "View stocks" : "Hide stocks";
+        toggleButton.classList.toggle("bg-blue-900", !isHidden);
+        toggleButton.classList.toggle("text-white", !isHidden);
+        toggleButton.classList.toggle("border-blue-900", !isHidden);
+        toggleButton.classList.toggle("shadow-inner", !isHidden);
+        toggleButton.classList.toggle("bg-white", isHidden);
+        toggleButton.classList.toggle("text-gray-700", isHidden);
+        toggleButton.classList.toggle("border-gray-300", isHidden);
+    }
+
+    // Run on start
+    (function () {
+        // grab all the rows showing the equity summaries
+        const holdingRows = Array.from(document.querySelectorAll("[data-dashboard-holding-row]"));
+
+        if (!holdingRows.length) {
+            return;
+        }
+
+        const profitClasses = ["text-gray-500", "text-green-600", "text-red-600"];
+        // A map where the Key = Portfolio ID, and the value is a list of child stock summaries
+        const portfolioRows = new Map();
+
+        // For each holdingRow, we parent it to their respective portfolioRow
+        holdingRows.forEach((row) => {
+            const portfolioId = row.dataset.portfolioId;
+
+            if (!portfolioRows.has(portfolioId)) {
+                portfolioRows.set(portfolioId, []);
+            }
+
+            portfolioRows.get(portfolioId).push(row);
+        });
+
+        // Helpers
+        const displayCurrency = "{{ display_currency|escapejs }}";
+
+        function formatCurrency(amount) {
+            const symbols = {
+                AUD: "A$",
+                USD: "US$",
+                EUR: "€",
+                CNY: "¥",
+                JPY: "¥",
+                GBP: "£",
+                INR: "₹",
+                CAD: "C$",
+                CHF: "CHF ",
+                NZD: "NZ$",
+                BRL: "R$",
+                RUB: "₽",
+                KRW: "₩",
+                MXN: "Mex$",
+                IDR: "Rp",
+                TRY: "₺",
+                SAR: "﷼",
+                AED: "د.إ",
+                ZAR: "R",
+                SEK: "kr",
+                NOK: "kr",
+                DKK: "kr",
+                PLN: "zł",
+                THB: "฿",
+                MYR: "RM",
+                PHP: "₱",
+                VND: "₫",
+                EGP: "E£",
+                NGN: "₦",
+                PKR: "₨",
+                BDT: "৳",
+                ILS: "₪",
+                ARS: "$",
+                CLP: "$",
+                COP: "$",
+                PEN: "S/",
+            };
+            const symbol = symbols[displayCurrency] || `${displayCurrency} `;
+            return `${symbol}${Number(amount).toFixed(2)}`;
+        }
+
+        function formatSignedCurrency(amount) {
+            const sign = amount >= 0 ? "+" : "-";
+            return `${sign}${formatCurrency(Math.abs(Number(amount)))}`;
+        }
+
+        function setProfitCell(cell, text, cssClass) {
+            if (!cell) {
+                return;
+            }
+
+            cell.textContent = text;
+            cell.classList.remove(...profitClasses);
+            cell.classList.add(cssClass);
+        }
+
+        function getSummaryRow(portfolioId) {
+            return document.querySelector(
+                `[data-portfolio-summary-row][data-portfolio-id="${portfolioId}"]`
+            );
+        }
+
+        // Refreshes the portfolio breakdown
+        function refreshPortfolioSummary(portfolioId) {
+            const summaryRow = getSummaryRow(portfolioId);
+            const rows = portfolioRows.get(portfolioId) || [];
+
+            if (!summaryRow || !rows.length) {
+                return;
+            }
+
+            const currentValueCell = summaryRow.querySelector("[data-portfolio-current-value]");
+            const profitCell = summaryRow.querySelector("[data-portfolio-profit]");
+
+            if (!currentValueCell || !profitCell) {
+                return;
+            }
+
+            // For each row, get the summary
+            const totals = rows.reduce(
+                (summary, row) => {
+                    const currentValue = Number(row.dataset.currentValue);
+                    const profitValue = Number(row.dataset.profitValue);
+
+                    // No financial data yet for some reason, so we set a flag
+                    if (Number.isNaN(currentValue) || Number.isNaN(profitValue)) {
+                        summary.hasUnknownValues = true;
+                        return summary;
+                    }
+                    
+                    // Return summary
+                    summary.currentValue += currentValue;
+                    summary.profit += profitValue;
+                    return summary;
+                },
+                // default
+                { currentValue: 0, profit: 0, hasUnknownValues: false }
+            );
+
+            // No data yet, say we're retrieving it from yfinance
+            if (totals.hasUnknownValues) {
+                currentValueCell.textContent = "Retrieving";
+                setProfitCell(profitCell, "Retrieving", "text-gray-500");
+                return;
+            }
+
+            const realisedPnl = Number(summaryRow.dataset.realisedPnl || "0");
+            const totalProfit = realisedPnl + totals.profit;
+
+            // Show current value + gain or loss
+            currentValueCell.textContent = formatCurrency(totals.currentValue);
+            setProfitCell(
+                profitCell,
+                formatSignedCurrency(totalProfit),
+                totalProfit >= 0 ? "text-green-600" : "text-red-600"
+            );
+        }
+
+        function markHoldingError(row) {
+            setProfitCell(
+                row.querySelector("[data-dashboard-holding-profit-cell]"),
+                "Error",
+                "text-gray-500"
+            );
+        }
+
+        function updateHoldingRow(row, closingPrice) {
+            const quantity = Number(row.dataset.quantity);
+            const costBasis = Number(row.dataset.costBasis);
+
+            // display error to user
+            if (Number.isNaN(quantity) || Number.isNaN(costBasis)) {
+                markHoldingError(row);
+                return;
+            }
+
+            const currentValue = closingPrice * quantity;
+            const profitValue = currentValue - costBasis;
+
+            // sets the row's data
+            row.dataset.currentValue = currentValue.toFixed(2);
+            row.dataset.profitValue = profitValue.toFixed(2);
+            // true by default
+            row.dataset.needsRefresh = "false";
+
+            setProfitCell(
+                row.querySelector("[data-dashboard-holding-profit-cell]"),
+                formatSignedCurrency(profitValue),
+                profitValue >= 0 ? "text-green-600" : "text-red-600"
+            );
+
+            // now that the row has changed values, we update the breakdown
+            refreshPortfolioSummary(row.dataset.portfolioId);
+        }
+
+        // magic number, increase if u want more lieniancy
+        const MAX_RETRIES = 3;
+
+        function sleep(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+        }
+
+        // fetchs closing price data
+        async function fetchWithRetry(updateUrl, attempt) {
+            const response = await fetch(updateUrl, {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            });
+
+            // unable to fetch, but still have enough attempts, so retry after waiting
+            if (response.status === 429 && attempt < MAX_RETRIES) {
+                const waitSeconds = 3 * Math.pow(2, attempt);
+                await sleep(waitSeconds * 1000);
+                return fetchWithRetry(updateUrl, attempt + 1);
+            }
+
+            const data = await response.json();
+
+            // all attempts exhausted, unsuccesful, return error
+            if (!response.ok || data.closing_price == null) {
+                throw new Error(data.error || "Failed to retrieve closing price.");
+            }
+
+            // OK, return closing price
+            return Number(data.closing_price);
+        }
+
+        const rowsNeedingRefresh = holdingRows.filter((row) => row.dataset.needsRefresh === "true");
+        const tickerRows = rowsNeedingRefresh.reduce((groups, row) => {
+            const ticker = row.dataset.equityTicker;
+
+            if (!groups.has(ticker)) {
+                groups.set(ticker, []);
+            }
+
+            groups.get(ticker).push(row);
+            return groups;
+        }, new Map());
+        const refreshGroups = Array.from(tickerRows.values());
+
+        // for each portfolio, get their breakdown
+        portfolioRows.forEach((_, portfolioId) => refreshPortfolioSummary(portfolioId));
+
+        // no stock need a price refresh so exit early
+        if (!refreshGroups.length) {
+            return;
+        }
+
+        // fetch closing price data
+        async function fetchPricesSequentially() {
+            for (const rows of refreshGroups) {
+                const updateUrl = rows[0].dataset.updateUrl;
+
+                try {
+                    const closingPrice = await fetchWithRetry(updateUrl, 0);
+
+                    rows.forEach((row) => updateHoldingRow(row, closingPrice));
+                } catch (error) {
+                    rows.forEach((row) => {
+                        markHoldingError(row);
+                        refreshPortfolioSummary(row.dataset.portfolioId);
+                    });
+                }
+            }
+        }
+
+        fetchPricesSequentially();
+    })();
+
+
+    // graph generation 
+    document.addEventListener("DOMContentLoaded", () => {
+        const durationButtons = Array.from(document.querySelectorAll(".duration-btn"));
+        if (!durationButtons.length) {
+            return;
+        }
+        let currentDashboardPeriod = "1 month";
+        const dashboardChartDataUrl = "{% url 'dashboard_chart_data' %}";
+
+        const labels = JSON.parse(document.getElementById("dashboard_portfolio_chart_labels").textContent) || [];
+        const datasets = JSON.parse(document.getElementById("dashboard_portfolio_chart_datasets").textContent) || [];
+
+        const display_chart = document.getElementById("dashboardPortfolioChart").getContext("2d");
+
+        // Formats currency for the chart, removes currency symbol
+        function formatCurrency(amount) {
+            return `${Number(amount).toFixed(2)}`;
+        }
+
+        function formatChartDate(dateString, period) {
+            const date = new Date(`${dateString}T12:00:00`);
+            const options = period === "1 year"
+                ? { day: "numeric", month: "short", year: "2-digit" }
+                : { day: "numeric", month: "short" };
+
+            return new Intl.DateTimeFormat("en-AU", options).format(date);
+        }
+
+        function formatChartLabels(rawLabels, period) {
+            return rawLabels.map((label) => formatChartDate(label, period));
+        }
+
+        function setActiveDurationButton(activeButton) {
+            durationButtons.forEach((button) => {
+                const isActive = button === activeButton;
+                button.classList.toggle("bg-blue-900", isActive);
+                button.classList.toggle("text-white", isActive);
+                button.classList.toggle("border-blue-900", isActive);
+                button.classList.toggle("shadow-inner", isActive);
+                button.classList.toggle("trangray-y-px", isActive);
+
+                button.classList.toggle("bg-gray-100", !isActive);
+                button.classList.toggle("text-gray-600", !isActive);
+                button.classList.toggle("border-gray-300", !isActive);
+                button.classList.toggle("shadow-sm", !isActive);
+                button.classList.toggle("hover:bg-gray-200", !isActive);
+            });
+        }
+        
+        // colout palette
+        const colours = [
+            { border: "#F97316", fill: "rgba(249, 115, 22, 0.25)" },
+            { border: "#EC4899", fill: "rgba(236, 72, 153, 0.25)" },
+            { border: "#3B82F6", fill: "rgba(59, 130, 246, 0.25)" },
+            { border: "#10B981", fill: "rgba(16, 185, 129, 0.25)" },
+
+            { border: "#8B5CF6", fill: "rgba(139, 92, 246, 0.25)" },
+            { border: "#F43F5E", fill: "rgba(244, 63, 94, 0.25)" },
+            { border: "#06B6D4", fill: "rgba(6, 182, 212, 0.25)" },
+            { border: "#84CC16", fill: "rgba(132, 204, 22, 0.25)" },
+
+            { border: "#EAB308", fill: "rgba(234, 179, 8, 0.25)" },
+            { border: "#0EA5E9", fill: "rgba(14, 165, 233, 0.25)" },
+            { border: "#A855F7", fill: "rgba(168, 85, 247, 0.25)" },
+            { border: "#F59E0B", fill: "rgba(245, 185, 11, 0.25)" },
+
+        ]
+        function buildChartDatasets(rawDatasets) {
+            const chartDatasets = [];
+
+            rawDatasets.forEach((p, i) => {
+                chartDatasets.push({
+                    label: p.name,
+                    data: p.values,
+                    borderColor: colours[i % colours.length].border,
+                    backgroundColor: colours[i % colours.length].fill,
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+
+                    pointRadius: function() {
+                        return currentDashboardPeriod === "5 days" || currentDashboardPeriod === "1 month"
+                            ? 4
+                            : 0;
+                    },
+                    pointHoverRadius: function(context) {
+                        const index = context.dataIndex;
+                        if (currentDashboardPeriod == "6 months") {
+                            return index % 3 === 0 ? 6 : 0;
+                        }
+                        if (currentDashboardPeriod == "1 year") {
+                            return index % 5 === 0 ? 6 : 0;
+                        }
+                        return 6;
+                    },
+                    pointHitRadius: function(context) {
+                        const index = context.dataIndex;
+                        if (currentDashboardPeriod == "6 months") {
+                            return index % 3 === 0 ? 6 : 0;
+                        }
+                        if (currentDashboardPeriod == "1 year") {
+                            return index % 5 === 0 ? 6 : 0;
+                        }
+                        return 6;
+                    },
+                    spanGaps: true
+                });
+            });
+
+            return chartDatasets;
+        }
+
+        const chart = new Chart(display_chart, {
+            type: "line",
+            data: {
+                labels: formatChartLabels(labels, currentDashboardPeriod),
+                datasets: buildChartDatasets(datasets)
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: value => formatCurrency(value)
+                        },
+                        grid: { color: "#e5e7eb" }
+                    },
+                    x: {
+                        grid: {display: false },
+                        ticks: {
+                            maxRotation: 0,
+                            minRotation: 0,
+                            callback: function(value, index) {
+                                if (currentDashboardPeriod === "6 months") {
+                                    return index % 2 === 0 ? this.getLabelForValue(value) : "";
+                                } else if (currentDashboardPeriod === "1 year") {
+                                    return index % 2 === 0 ? this.getLabelForValue(value) : "";
+                                }
+                                return this.getLabelForValue(value);
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { position: "bottom" },
+                    tooltip: {
+                        filter: function (tooltipItem) {
+                            const period = currentDashboardPeriod;
+
+                            if (period === "6 months") {
+                                return tooltipItem.dataIndex % 3 === 0;
+                            } else if (period === "1 year") {
+                                return tooltipItem.dataIndex % 5 === 0;
+                            }
+
+                            return true;
+                        },
+                        callbacks: {
+                            label: display_chart => `${display_chart.dataset.label}: $${formatCurrency(display_chart.raw)}`
+                        },
+                        bodyFont: {
+                            size: 17
+                        }, 
+                        titleFont: {
+                            size: 18
+                        }
+                    }
+                }
+            }
+        });
+
+        durationButtons.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const period = btn.dataset.period;
+                currentDashboardPeriod = period;
+                setActiveDurationButton(btn);
+                fetch(`${dashboardChartDataUrl}?period=${encodeURIComponent(period)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        // redraw chart with the selected time period
+                        chart.data.labels = formatChartLabels(data.labels || [], period);
+                        chart.data.datasets = buildChartDatasets(data.datasets || []);
+                        chart.options.plugins.tooltip.filter = function (tooltipItem) {
+                            if (period === "6 months") {
+                                return tooltipItem.dataIndex % 3 === 0;
+                            } else if (period === "1 year") {
+                                return tooltipItem.dataIndex % 5 === 0;
+                            }
+
+                            return true;
+                        };
+                        chart.options.scales.x.ticks.callback = function(value, index) {
+                            if (period === "6 months") {
+                                    return index % 2 === 0 ? this.getLabelForValue(value) : "";
+                            } else if (period === "1 year") {
+                                    return index % 2 === 0 ? this.getLabelForValue(value) : "";
+                            }
+                            return this.getLabelForValue(value);
+                        };
+                        
+                        chart._metasets = [];
+                        chart.update();
+                    });
+                });
+        });
+    });
+
+    
+    const portfoioDeleteSuccPopup = document.getElementById("portfolio-delete-success-popup");
+    if (portfoioDeleteSuccPopup) {
+        window.setTimeout(() => {
+            portfoioDeleteSuccPopup.remove();
+        }, 3500);
+    }
+</script>
+  
+
+{% endblock %}

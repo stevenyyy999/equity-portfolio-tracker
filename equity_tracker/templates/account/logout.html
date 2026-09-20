@@ -1,0 +1,29 @@
+{% extends "allauth/layouts/entrance.html" %}
+{% load account %}
+{% block secondary_nav_bar %}
+    <span class="pt-2 px-4 text-gray-600">&gt;</span>
+    <a href="{% url 'account_logout' %}" class="text-base font-medium pt-2 hover:underline">Logout</a>
+{% endblock %}
+
+{% block allauth_content %}
+ 
+<h1 class="text-2xl font-semibold mb-6 text-center">Logout</h1>
+<div class="pb-4 text-center mt-8 mb-2">
+    <p class="font-medium pb-4">You are currently logged in as {{ user.username }}</p>
+    <span class="font-medium">Are you sure you want to logout?</span>
+</div>
+<form method="POST" class="space-y-5"> 
+    {% csrf_token %}
+    <div class="px-16">
+         <button type="submit"
+        class="w-full bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-700 transition">
+        Logout
+    </button>
+    </div>
+   
+    <div class="pt-4 text-center">
+        <a href="{% url 'dashboard' %}" class="hover:underline text-gray-600 text-sm">Cancel and return to dashboard</a>
+    </div>
+    
+</form>
+{% endblock %}

@@ -1,0 +1,19 @@
+[run]
+branch = True
+source =
+    core
+    portfolios
+    subscriptions
+    taxCalculator
+    transactions
+    users
+omit =
+    */migrations/*
+    manage.py
+
+[report]
+show_missing = True
+skip_empty = True
+
+[html]
+directory = htmlcov

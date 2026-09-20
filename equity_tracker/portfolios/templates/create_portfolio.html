@@ -1,0 +1,60 @@
+{% extends "allauth/layouts/base.html" %}
+
+{% load static %}
+
+{% block secondary_nav_bar %}
+    <span class="pt-2 px-4 text-gray-600">&gt;</span>
+    <a href="{% url 'create_portfolio_page' %}" class="text-base font-medium pt-2 hover:text-indigo-600 hover:underline">Create Portfolio</a>
+{% endblock %}
+
+{% block allauth_content %}
+<h1 class="text-2xl font-semibold mb-6 text-center">Create Portfolio</h1>
+
+{% if errors %}
+<div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+    Please fix the errors below.
+</div>
+{% endif %}
+
+<form method="POST" action="{% url 'create_portfolio' %}" class="space-y-5"> 
+    {% csrf_token %}
+    <div>
+        <label class="block text-sm font-medium mb-1">Portfolio Name</label>
+        <input type="text" name="name" value="{{ form_data.name|default:'' }}" placeholder="max=100char" class="w-full rounded border p-2">
+        {% if errors.name %}
+        <p class="mt-1 text-sm text-red-600">{{ errors.name }}</p>
+        {% endif %}
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium mb-1">Description (optional)</label>
+        <textarea name="description" class="w-full resize-none rounded border p-2" placeholder="max=255char">{{ form_data.description|default:'' }}</textarea>
+        {% if errors.description %}
+        <p class="mt-1 text-sm text-red-600">{{ errors.description }}</p>
+        {% endif %}
+    </div>
+    
+    <!-- <div class="pt-6 pb-4 flex items-center justify-between">
+        <a href="{% url 'dashboard' %}">
+             cancel
+        </a>
+            
+        <button type="submit"
+            class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
+            create
+        </button>
+
+    </div> -->
+    <div class="pt-8 flex justify-between">                    
+        <a 
+            href="{% url 'dashboard' %}"
+            class="px-8 bg-gray-500 text-white py-2 rounded-lg font-medium hover:bg-gray-700 transition">Cancel</a>
+
+        <button type="submit"
+            class="px-8 bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition">
+            Create
+        </button>
+    </div>
+
+</form>
+{% endblock %}

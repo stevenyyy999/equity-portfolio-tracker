@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:16
+    container_name: portfolio_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-portfolio_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-portfolio_pass}
+      POSTGRES_DB: ${DB_NAME:-portfolio_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-portfolio_user} -d ${DB_NAME:-portfolio_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: portfolio_web
+    command: >
+      bash scripts/docker-entrypoint.sh bash -c
+      "python manage.py shell -c 'from currency.views import update_exchange_rates; update_exchange_rates()'
+      && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_NAME: ${DB_NAME:-portfolio_db}
+      DB_USER: ${DB_USER:-portfolio_user}
+      DB_PASSWORD: ${DB_PASSWORD:-portfolio_pass}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-60}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-1}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_PREMIUM_PRICE_ID: ${STRIPE_PREMIUM_PRICE_ID:-}
+      STRIPE_ENDPOINT_SECRET: ${STRIPE_ENDPOINT_SECRET:-}
+      MAIL: ${MAIL:-}
+      MAIL_PASS: ${MAIL_PASS:-}
+      EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY:-}
+
+  stripe:
+    build: .
+    container_name: portfolio_stripe
+    command: bash scripts/stripe-listen.sh
+    depends_on:
+      - web
+    environment:
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_FORWARD_TO: ${STRIPE_FORWARD_TO:-web:8000/stripe/webhook/}
+    
+volumes:
+  postgres_data:

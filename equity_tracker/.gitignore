@@ -1,0 +1,3 @@
+venv/
+yfinance_test.py
+__pycache__/

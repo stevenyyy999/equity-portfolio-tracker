@@ -1,0 +1,582 @@
+<div id="equity_popup"
+    class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-40">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden animate-fade-in z-10">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-center px-5 pt-4 text-xs uppercase tracking-widest text-gray-400">Equity Name</div>
+        <div class="flex justify-between items-center px-5 pb-4 border-b border-gray-200">
+            <h2 id="equity_name" class="text-lg font-bold text-blue-900"></h2>
+            <button id="close_equity_popup" class="text-gray-400 hover:text-gray-600 text-2xl leading-none pb-1.5">&times;</button>
+        </div>
+
+        <!-- Main info -->
+        <div class="px-5 py-5 text-center border-b border-gray-100">
+            <div class="text-xs uppercase tracking-widest text-gray-400 mb-1">Current Value</div>
+            <div id="holding_current_value" class="text-4xl font-bold text-blue-900 mb-2">—</div>
+            <div class="whitespace-nowrap">
+                <div id="holding_gain" class="inline-flex items-center gap-1 text-sm font-semibold">—</div> 
+                <div class="mt-2 text-xs tracking-widest text-gray-400">Last Updated at
+                    <span id="holding_date" class="text-xs italic tracking-widest text-gray-400">—</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graph area -->
+        <div class="px-6 pt-4">
+            <!-- Filter buttons -->
+            <div class="flex gap-2 mb-3">
+                <button type="button" data-range="5 days"
+                    class="chart-range-btn px-3 py-1 text-xs font-semibold rounded-full bg-blue-900 text-white transition">
+                    5 days
+                </button>
+                <button type="button" data-range="1 month"
+                    class="chart-range-btn px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                    1 month
+                </button>
+                <button type="button" data-range="6 months"
+                    class="chart-range-btn px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                    6 months
+                </button>
+                <button type="button" data-range="1 year"
+                    class="chart-range-btn px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                    1 year
+                </button>
+            </div>
+            <!-- Chart canvas -->
+            <div id="equity_chart_canvas_container" class="w-full h-40 rounded-lg overflow-hidden">
+                <canvas id="equityPriceChart"></canvas>
+            </div>
+            <div id="equity_chart_empty" class="hidden w-full h-40 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-sm">
+                No data available
+            </div>
+        </div>
+
+        <!-- Other Details -->
+        <div class="grid grid-cols-2 divide-x divide-gray-100 border-b border-gray-100 p-3">
+            <div class="px-5 py-4">
+                <div class="text-sm text-gray-400 mb-1">Units owned</div>
+                <div id="holding_quantity" class="text-2xl font-bold text-blue-900">—</div>
+            </div>
+            <div class="px-5 py-4">
+                <div class="text-sm text-gray-400 mb-1">Current price / unit</div>
+                <div id="holding_price" class="text-2xl font-bold text-blue-900">—</div>
+            </div>
+        </div>
+
+        <!-- Bottom buttons -->
+        <div class="px-6 py-5">
+            <div class="flex items-center justify-between gap-4">
+                <!-- Delete button -->
+                <!-- <form method="POST" action="{% url 'delete_equity_data' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="portfolio_id" id="eq_popup_portfolio_id">
+                    <input type="hidden" name="equity_id" id="eq_popup_equity_id"> -->
+
+                    <!-- <button type="submit"
+                        class="border border-red-500 text-red-500 hover:bg-red-50 transition px-4 py-2 rounded-lg text-sm font-semibold">
+                        Delete equity
+                    </button> -->
+
+
+                    <button type="button" 
+                            class="border border-red-500 text-red-500 hover:bg-red-50 transition px-4 py-2 rounded-lg text-sm font-semibold"
+                            onclick="openDeleteEquityPopup()"
+                    > Delete equity </button>
+                <!-- </form> -->
+
+                <!-- Move button -->
+                <button
+                    type="button"
+                    onclick="toggleMoveEquityForm()"
+                    class="border border-blue-500 text-blue-500 hover:bg-blue-50 transition px-4 py-2 rounded-lg text-sm font-semibold">
+                    Move equity
+                </button>
+
+                <!-- Transaction history button -->
+                <button
+                    type="button"
+                    id="see_transaction_history"
+                    data-history-url="{% url 'transactions:transactions_history' %}"
+                    class="border border-blue-500 bg-blue-900 text-white hover:bg-blue-700 transition px-4 py-2 rounded-lg text-sm font-semibold">
+                    See transactions history
+                </button>
+            </div>
+
+            <!-- Hidden move form -->
+            <form id="move-equity-form" method="POST" action="{% url 'move_equity_to_portfolio' %}" class="hidden mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="source_portfolio_id" id="move_source_portfolio_id">
+                <input type="hidden" name="equity_id" id="move_equity_id">
+
+                <div id="move-equity-error"
+                    class="hidden mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                </div>
+
+                <label for="target_portfolio_id" class="block text-sm font-medium text-gray-700 mb-2">
+                    Move to portfolio
+                </label>
+
+                <select name="target_portfolio_id" id="target_portfolio_id"
+                    class="w-full rounded-lg border border-gray-300 px-3 py-2 mb-3 text-sm">
+                    <option value="">Select a portfolio</option>
+                    {% for p in other_portfolios %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit"
+                    class="w-full border border-blue-500 bg-blue-900 text-white hover:bg-blue-700 transition px-4 py-2 rounded-lg text-sm font-semibold">
+                    Confirm move
+                </button>
+            </form>
+        </div>
+       
+    </div>
+
+</div>
+
+<div id="delete_equity_popup"
+     class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-4">
+    <div class="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl animate-fade-in">
+        <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <h2 class="text-xl font-bold text-red-900">Delete equity?</h2>
+            <button
+                type="button"
+                id="close_delete_equity_popup"
+                class="text-2xl leading-none text-gray-400 hover:text-gray-600 transition"
+                aria-label="Close delete equity popup">
+                &times;
+            </button>
+        </div>
+
+        <div class="px-6 py-5">
+            <p class="text-sm leading-6 text-gray-600">
+                Are you sure you want to delete
+                <span id="equity_name_delete_popup" class="font-semibold text-gray-900"></span>
+                and all associated transactions?
+            </p>
+
+            <p class="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                This action cannot be undone
+            </p>
+        </div>
+
+        <form action="{% url 'delete_equity_data' %}" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="portfolio_id" id="eq_popup_portfolio_id">
+            <input type="hidden" name="equity_id" id="eq_popup_equity_id">
+
+            <div class="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
+                <button
+                    type="button"
+                    id="cancel_delete_equity"
+                    class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button type="submit" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition">
+                    <span>Delete equity</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+
+
+<script>
+    let equityPriceChart = null;
+    let equityHistory = [];
+    let chartRange = "5 days";
+    const equityDisplayCurrency = "{{ display_currency|default:'AUD'|escapejs }}";
+
+    function formatEquityMoney(amount) {
+        const symbols = {
+            AUD: "A$",
+            USD: "US$",
+            EUR: "€",
+            CNY: "¥",
+            JPY: "¥",
+            GBP: "£",
+            INR: "₹",
+            CAD: "C$",
+            CHF: "CHF ",
+            NZD: "NZ$",
+            BRL: "R$",
+            RUB: "₽",
+            KRW: "₩",
+            MXN: "Mex$",
+            IDR: "Rp",
+            TRY: "₺",
+            SAR: "﷼",
+            AED: "د.إ",
+            ZAR: "R",
+            SEK: "kr",
+            NOK: "kr",
+            DKK: "kr",
+            PLN: "zł",
+            THB: "฿",
+            MYR: "RM",
+            PHP: "₱",
+            VND: "₫",
+            EGP: "E£",
+            NGN: "₦",
+            PKR: "₨",
+            BDT: "৳",
+            ILS: "₪",
+            ARS: "$",
+            CLP: "$",
+            COP: "$",
+            PEN: "S/",
+        };
+        const symbol = symbols[equityDisplayCurrency] || `${equityDisplayCurrency} `;
+        return `${symbol}${Number(amount).toFixed(2)}`;
+    }
+    let currentEquityHistoryUrl = "";
+
+    function setChartRange(range) {
+        chartRange = range;
+
+        if (currentEquityHistoryUrl) {
+            loadEquityPriceHistory(currentEquityHistoryUrl);
+        }
+    }
+
+    document.querySelectorAll(".chart-range-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+            setChartRange(button.dataset.range);
+        });
+    });
+
+    function drawEquityChart() {
+        const canvasContainer = document.getElementById("equity_chart_canvas_container");
+        const emptyState = document.getElementById("equity_chart_empty");
+        const chartCanvas = document.getElementById("equityPriceChart");
+        const labelOptions = chartRange === "1 year"
+            ? { day: "numeric", month: "short", year: "2-digit" }
+            : { day: "numeric", month: "short" };
+
+        document.querySelectorAll(".chart-range-btn").forEach((button) => {
+            const active = button.dataset.range === chartRange;
+            button.classList.toggle("bg-blue-900", active);
+            button.classList.toggle("text-white", active);
+            button.classList.toggle("bg-gray-100", !active);
+            button.classList.toggle("text-gray-600", !active);
+        });
+
+        if (!equityHistory.length) {
+            if (equityPriceChart) {
+                equityPriceChart.destroy();
+                equityPriceChart = null;
+            }
+            canvasContainer.classList.add("hidden");
+            emptyState.classList.remove("hidden");
+            return;
+        }
+
+        canvasContainer.classList.remove("hidden");
+        emptyState.classList.add("hidden");
+
+        const labels = equityHistory.map((point) =>
+            new Intl.DateTimeFormat("en-AU", labelOptions).format(
+                new Date(`${point.date}T12:00:00`)
+            )
+        );
+        const values = equityHistory.map((point) => Number(point.closing_price));
+
+        if (equityPriceChart) {
+            equityPriceChart.destroy();
+        }
+
+        equityPriceChart = new Chart(chartCanvas, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    borderColor: "#1d4ed8",
+                    backgroundColor: "rgba(29, 78, 216, 0.12)",
+                    borderWidth: 3,
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: function() {
+                        return chartRange === "5 days" || chartRange === "1 month"
+                            ? 4
+                            : 0;
+                    },
+                    pointHoverRadius: function(context) {
+                        const index = context.dataIndex;
+                        if (index == null) return 0;
+                        if (chartRange == "6 months") {
+                            return index % 3 === 0 ? 6 : 0;
+                        }
+                        if (chartRange == "1 year") {
+                            return index % 6 === 0 ? 6 : 0;
+                        }
+                        return 6;
+                    },
+                    pointHitRadius: function(context) {
+                        const index = context.dataIndex;
+                        if (index == null) return 0;
+                        if (chartRange == "6 months") {
+                            return index % 3 === 0 ? 6 : 0;
+                        }
+                        if (chartRange == "1 year") {
+                            return index % 6 === 0 ? 6 : 0;
+                        }
+                        return 6;
+                    },
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip:{
+                        callbacks: {
+                            label: (ctx) => formatEquityMoney(ctx.raw)
+                        },
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                    },
+                    y: {
+                        ticks: {
+                            callback: (value) => formatEquityMoney(Number(value)),
+                        },
+                    },
+                },
+            },
+        });
+    }
+
+    async function loadEquityPriceHistory(historyUrl) {
+        try {
+            const response = await fetch(`${historyUrl}?period=${encodeURIComponent(chartRange)}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                equityHistory = [];
+            } else {
+                equityHistory = Array.isArray(data.price) ? data.price : [];
+                equityHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+            }
+        } catch (error) {
+            equityHistory = [];
+        }
+
+        drawEquityChart();
+    }
+
+    function openEquityPopup(
+        portfolio_name,
+        equityTicker,
+        equityName,
+        equityCurrentValue,
+        equityGain,
+        portfolioId,
+        equityId,
+        equityPrice,
+        equityQuantity,
+        equityDate,
+        equityUpdateUrl,
+        equityHistoryUrl
+    ) {
+        document.getElementById("equity_popup").classList.remove("hidden");
+        document.getElementById("eq_popup_equity_id").value = equityId;
+        document.getElementById("eq_popup_portfolio_id").value = portfolioId;
+
+        const moveEquityIdInput = document.getElementById("move_equity_id");
+        if (moveEquityIdInput) {
+            moveEquityIdInput.value = equityId;
+        }
+
+        const moveSourcePortfolioIdInput = document.getElementById("move_source_portfolio_id");
+        if (moveSourcePortfolioIdInput) {
+            moveSourcePortfolioIdInput.value = portfolioId;
+        }
+
+        const equityNameElement = document.getElementById("equity_name");
+        if (equityNameElement) {
+            equityNameElement.textContent = equityName;
+        }
+
+        const equityCurrentValueElement = document.getElementById("holding_current_value");
+        const equityGainElement = document.getElementById("holding_gain");
+        const equityPriceElement = document.getElementById("holding_price");
+
+        if (equityCurrentValueElement) {
+            equityCurrentValueElement.textContent = equityCurrentValue;
+        }
+        if (equityGainElement) {
+            equityGainElement.textContent = equityGain;
+        }
+        if (equityPriceElement) {
+            equityPriceElement.textContent = equityPrice;
+        }
+
+        if (equityGainElement) {
+            equityGainElement.classList.remove("text-gray-500", "text-green-500", "text-red-500");
+            if (equityGain.includes("-")) {
+                equityGainElement.classList.add("text-red-500");
+            } else if (equityGain.includes("+")) {
+                equityGainElement.classList.add("text-green-500");
+            } else {
+                equityGainElement.classList.add("text-gray-500");
+            }
+        }
+
+        const equityQuantityElement = document.getElementById("holding_quantity");
+        if (equityQuantityElement) {
+            equityQuantityElement.textContent = equityQuantity;
+        }
+
+        const equityClosingDate = document.getElementById("holding_date");
+        if (equityClosingDate) {
+            equityClosingDate.textContent = equityDate;
+        }
+
+        // Confirms retrieving status
+        const needsRefresh =
+            String(equityPrice).includes("Retrieving") ||
+            String(equityCurrentValue).includes("Retrieving") ||
+            String(equityGain).includes("Retrieving");
+
+        // If equity graph display returns "Retrieving", update the price, gain and date from database
+        if (needsRefresh && equityUpdateUrl) {
+            fetch(equityUpdateUrl + "?portfolio_id=" + portfolioId + "&equity_id=" + equityId, {
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            })
+            // If backend data exists (might be errors where backend data might not exist)
+            // Catch in case
+            .then(function(response) {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    return null;
+                }
+            })
+            .then(function(data) {
+                if (data == null) {
+                    return;
+                }
+
+                if (!data.display_closing_price) {
+                    return;
+                }
+
+                if (equityPriceElement) {
+                    equityPriceElement.textContent = data.display_closing_price;
+                }
+
+                if (equityClosingDate && data.date) {
+                    equityClosingDate.textContent = data.date;
+                }
+
+                var latestPrice = Number(data.closing_price);
+                var quantity = Number(equityQuantity);
+
+                if (!Number.isNaN(latestPrice) && !Number.isNaN(quantity)) {
+                    if (equityCurrentValueElement) {
+                        equityCurrentValueElement.textContent = formatEquityMoney(latestPrice * quantity);
+                    }
+                }
+
+                if (equityGainElement && data.display_gain) {
+                    equityGainElement.textContent = data.display_gain;
+                    equityGainElement.classList.remove("text-gray-500", "text-green-500", "text-red-500");
+                    if (data.gain_class) {
+                        equityGainElement.classList.add(data.gain_class);
+                    } else {
+                        equityGainElement.classList.add("text-gray-500");
+                    }
+                }
+            })
+            .catch(function(error) {
+                // If error then just keep it as is
+                console.error("Equity Info Display Error", error);
+            });
+        }
+
+        const transactionHistoryButton = document.getElementById("see_transaction_history");
+        if (transactionHistoryButton) {
+            const historyUrl = transactionHistoryButton.dataset.historyUrl;
+            transactionHistoryButton.onclick = () => {
+                window.location.href =
+                    `${historyUrl}?portfolio=${encodeURIComponent(portfolio_name)}&ticker=${encodeURIComponent(equityTicker)}`;
+            };
+        }
+
+        const moveForm = document.getElementById("move-equity-form");
+        const moveError = document.getElementById("move-equity-error");
+        const targetSelect = document.getElementById("target_portfolio_id");
+
+        if (moveForm) {
+            moveForm.classList.add("hidden");
+        }
+        if (moveError) {
+            moveError.classList.add("hidden");
+            moveError.textContent = "";
+        }
+        if (targetSelect) {
+            targetSelect.value = "";
+        }
+
+        equityHistory = [];
+        chartRange = "5 days";
+        currentEquityHistoryUrl = equityHistoryUrl;
+        loadEquityPriceHistory(currentEquityHistoryUrl);
+    }
+
+    function closeEquityPopup() {
+        document.getElementById("equity_popup").classList.add("hidden");
+    }
+
+    function closeDeleteEquityPopup() {
+        document.getElementById("delete_equity_popup").classList.add("hidden");
+        document.getElementById("equity_popup").classList.remove("hidden");
+    }
+
+    document.getElementById("close_equity_popup").addEventListener("click", closeEquityPopup);
+
+    document.getElementById("equity_popup").addEventListener("click", (event) => {
+        if (event.target === event.currentTarget) {
+            closeEquityPopup();
+        }
+    });
+
+    function openDeleteEquityPopup() {
+        const equityName = document.getElementById("equity_name").textContent;
+        const portfolioId = document.getElementById("eq_popup_portfolio_id").value;
+        const equityId = document.getElementById("eq_popup_equity_id").value;
+
+        document.getElementById("equity_popup").classList.add("hidden");
+
+        document.getElementById("equity_name_delete_popup").textContent = equityName;
+        document.getElementById("eq_popup_portfolio_id").value = portfolioId;
+        document.getElementById("eq_popup_equity_id").value = equityId;
+
+        document.getElementById("delete_equity_popup").classList.remove("hidden");
+    }
+
+    document.getElementById("close_delete_equity_popup").addEventListener("click", closeDeleteEquityPopup);
+
+    document.getElementById("cancel_delete_equity").addEventListener("click", closeDeleteEquityPopup);
+
+    document.getElementById("delete_equity_popup").addEventListener("click", (event) => {
+        if (event.target === event.currentTarget) {
+            closeDeleteEquityPopup();
+        }
+    });
+
+
+</script>

@@ -1,0 +1,4 @@
+ticker,transaction_type,quantity,price,trade_date
+CBA,BUY,10,100,2026-04-10
+XXXX,BUY,5,50,2026-04-11
+CBA,SELL,20,120,2026-04-12

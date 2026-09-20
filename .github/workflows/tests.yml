@@ -1,0 +1,68 @@
+name: Django Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: portfolio_db
+          POSTGRES_USER: portfolio_user
+          POSTGRES_PASSWORD: portfolio_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U portfolio_user -d portfolio_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: equity_tracker
+
+    env:
+      DB_NAME: portfolio_db
+      DB_USER: portfolio_user
+      DB_PASSWORD: portfolio_pass
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      STRIPE_SECRET_KEY: test_secret_key
+      STRIPE_PUBLISHABLE_KEY: test_publishable_key
+      STRIPE_PREMIUM_PRICE_ID: test_premium_price
+      STRIPE_ENDPOINT_SECRET: test_endpoint_secret
+      GOOGLE_CLIENT_ID: test_google_client_id
+      GOOGLE_CLIENT_SECRET: test_google_client_secret
+      MAIL: test@example.com
+      MAIL_PASS: test-password
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: equity_tracker/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run test suite with coverage
+        run: bash scripts/run_coverage.sh
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: django-coverage-report
+          path: |
+            equity_tracker/htmlcov
+            equity_tracker/coverage.xml

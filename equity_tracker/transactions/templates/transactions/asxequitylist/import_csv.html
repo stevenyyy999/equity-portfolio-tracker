@@ -1,0 +1,16 @@
+{% extends "admin/base.html" %}
+{% block content %}
+
+<h2>Import ASX Equity List from CSV</h2>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <p><input type="file" name="file" accept=".csv" required></p>
+    <p>
+        <label>
+            <input type="checkbox" name="clear_existing">
+            Clear existing list before importing
+        </label>
+    </p>
+    <input type="submit" value="Import">
+</form>
+{% endblock %}

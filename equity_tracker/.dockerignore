@@ -1,0 +1,12 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.coverage
+coverage.xml
+htmlcov/
+.ruff_cache/
+db.sqlite3
+.DS_Store
+Thumbs.db

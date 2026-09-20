@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block secondary_nav_bar %}
+    <span class="pt-2 px-4 text-gray-600">&gt;</span>
+    <a href="{% url 'account-profile' %}" class="text-base font-medium pt-2 hover:underline hover:text-indigo-600"> Update Personal Details</a>
+{% endblock %}
+
+{% block content %}
+<!-- Main card for the user's profile details -->
+<div class="max-w-3xl mx-auto mt-10 rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+    <!-- Page heading and shortcut buttons -->
+    <div class="mb-8 flex items-start justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">{{ user.first_name }} {{ user.last_name }}'s Profile</h1>
+            <p class="mt-2 text-sm text-gray-600">
+                Update your personal details and preferences here.
+            </p>
+        </div>
+        <div class="flex gap-3">
+            <!-- Takes the user to the email editing page -->
+            <a href="#email-panel"
+                class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Manage Email
+            </a>
+            <!-- Takes the user to the password editing page -->
+            <a href="{% url 'account_reset_password' %}"
+                class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Change Password
+            </a>
+        </div>
+    </div>
+
+    <form id="profile-form" class="space-y-6">
+        <div class="grid gap-4 md:grid-cols-2">
+            <div>
+                <!-- First name field -->
+                <label for="first_name" class="mb-1 block font-medium text-gray-700">First Name</label>
+                <input id="first_name" name="first_name" type="text"
+                    class="w-full rounded-lg border border-gray-300 px-3 py-2">
+            </div>
+
+            <div>
+                <!-- Last name field -->
+                <label for="last_name" class="mb-1 block font-medium text-gray-700">Last Name</label>
+                <input id="last_name" name="last_name" type="text"
+                    class="w-full rounded-lg border border-gray-300 px-3 py-2">
+            </div>
+        </div>
+
+        <div>
+            <!-- Email field stays read-only here -->
+            <label for="email" class="mb-1 block font-medium text-gray-700">Email</label>
+            <input id="email" name="email" type="email" value="{{ request.user.email }}"
+                class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-gray-500" readonly>
+            <p class="mt-1 text-sm text-gray-500">Use the Manage Email button to update your email address.</p>
+        </div>
+
+        <div>
+            <!-- Address field -->
+            <label for="address" class="mb-1 block font-medium text-gray-700">Address</label>
+            <input id="address" name="address" type="text" class="w-full rounded-lg border border-gray-300 px-3 py-2">
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2">
+            <div>
+                <!-- Country field -->
+                <label for="country" class="mb-1 block font-medium text-gray-700">Country</label>
+                <select id="country" name="country" class="w-full rounded-lg border border-gray-300 px-3 py-2">
+                    <option value="Australia">Australia</option>
+                    <option value="New Zealand">New Zealand</option>
+                    <option value="United States">United States</option>
+                    <option value="United Kingdom">United Kingdom</option>
+                    <option value="Canada">Canada</option>
+                    <option value="Wakanda">Wakanda</option>
+                    <option value="South Korea">South Korea</option>
+                </select>
+            </div>
+
+            <div>
+                <!-- Currency field -->
+                <label for="currency" class="mb-1 block font-medium text-gray-700">Currency</label>
+                <div id="currency-dropdown" class="relative">
+                    <input
+                        id="currency"
+                        name="currency"
+                        type="text"
+                        autocomplete="off"
+                        class="border w-full p-2 rounded"
+                        placeholder="Type to search currency"
+                    >
+                    <div
+                    
+                        id="currency-dropdown-menu"
+                        class="hidden absolute left-0 top-full z-50 mt-1 max-h-64 w-full overflow-y-auto rounded border bg-white shadow"
+                    ></div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <!-- Indicates whether the CGT calculator is enabled -->
+            <p id="cgt-status" class="text-sm text-gray-600">CGT calculator status will appear here.</p>
+        </div>
+
+        <div id="message" class="text-sm"></div>
+
+        <div class="pt-2">
+            <!-- Button saves data upon click -->
+            <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+                Save Changes
+            </button>
+        </div>
+    </form>
+
+    <section class="mt-10 border-t border-red-200 pt-8">
+        <div class="rounded-xl border border-red-200 bg-red-50 p-6">
+            <h2 class="text-xl font-semibold text-red-900">Delete Account</h2>
+            <p class="mt-2 text-sm text-red-800">
+                This permanently deletes your account, portfolios, transactions, holdings, and personal data.
+                If you hold an active membership, it will be cancelled and will not be refunded.
+            </p>
+            <div id="delete-account-message" class="mt-4 text-sm"></div>
+            <div class="mt-5">
+                <button
+                    id="delete-account-button"
+                    type="button"
+                    data-endpoint="{% url 'delete-account' %}"
+                    class="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+                >
+                    Delete Account
+                </button>
+            </div>
+
+            <!-- Deletion confirmation pop-up -->
+            <div id="delete-account-popup"
+                class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-4">
+
+                <div class="w-full max-w-xl rounded-2xl border bg-white px-10 py-10 shadow-2xl">
+                    <h2 class="text-3xl font-bold text-red-900">
+                        Delete Account?
+                    </h2>
+
+                    <p class="mt-6 text-base leading-7 text-gray-600">
+                        This will permanently delete your account, portfolios,
+                        transactions, holdings, and personal information.
+                    </p>
+
+                    <div class="mt-5 rounded-lg border border-yellow-300 bg-yellow-50 px-5 py-5">
+                        <p class="flex items-center gap-2 font-bold text-yellow-900">
+                            {% load static %}
+                            <img src="{% static 'icons/round-report-problem.svg' %}" alt="Warning" class="h-6 w-6">
+                            Important
+                        </p>
+                        <p class="mt-3 text-sm leading-6 text-yellow-800">
+                            If you have an active membership, it will also be cancelled and no refund will be issued.
+                        </p>
+                    </div>
+
+                    <p class="flex items-center justify-center gap-2 mt-5 text-center font-bold text-red-600 px-5 py-2">
+                        {% load static %}
+                            <img src="{% static 'icons/bin-line-red.svg' %}" alt="Delete" class="h-6 w-6">
+                        This action cannot be undone
+                    </p>
+
+                    <div class="mt-8 flex items-center justify-between">
+                        <button id="cancel-delete-account-button"
+                            type="button"
+                            class="rounded-lg border border-gray-300 bg-white font-bold text-gray-600 hover:bg-gray-50 px-6 py-2">
+                            Cancel
+                        </button>
+
+                        <button id="confirm-delete-account-button"
+                            type="button"
+                            class="rounded-lg bg-red-600 font-bold text-white hover:bg-red-800 px-6 py-2">
+                            Yes, delete account
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Include our email change form here -->
+{% include "users/email_change.html" %}
+
+<script>
+    const profileEndpoint = "{% url 'profile' %}";
+    const landingUrl = "{% url 'landing' %}";
+    let currencyOptions = [];
+    let currencyDropdownReady = false;
+
+    function drawCurrencyDropdown(filterText) {
+        const currencyInput = document.getElementById("currency");
+        const dropdownMenu = document.getElementById("currency-dropdown-menu");
+        const query = (filterText || "").toUpperCase().trim();
+        const filteredOptions = [];
+
+        // Input matching currency filter
+        for (const currency of currencyOptions) {
+            if (currency.includes(query)) {
+                filteredOptions.push(currency);
+            }
+        }
+
+        // Clear the dropdown menu
+        dropdownMenu.innerHTML = "";
+
+        // If no options match the filter, show a message
+        if (!filteredOptions.length) {
+            const emptyRow = document.createElement("div");
+            emptyRow.className = "px-3 py-2 text-gray-500";
+            emptyRow.textContent = "No currencies found";
+            dropdownMenu.appendChild(emptyRow);
+            return;
+        }
+
+        // Allows user to select a currency from the dropdown menu
+        for (const currency of filteredOptions) {
+            const row = document.createElement("button");
+            row.type = "button";
+            row.className = "block w-full px-3 py-2 text-left hover:bg-gray-100";
+            row.textContent = currency;
+            row.addEventListener("click", function () {
+                currencyInput.value = currency;
+                dropdownMenu.classList.add("hidden");
+            });
+            dropdownMenu.appendChild(row);
+        }
+    }
+
+    function setupCurrencyDropdown(options, selectedCurrency) {
+        const currencyInput = document.getElementById("currency");
+        const dropdown = document.getElementById("currency-dropdown");
+        const dropdownMenu = document.getElementById("currency-dropdown-menu");
+        const safeOptions = Array.isArray(options) && options.length ? options : ["AUD"];
+
+        // Cleans currency options list
+        currencyOptions = [];
+        for (const option of safeOptions) {
+            const upper = (option || "").toUpperCase();
+            if (upper && !currencyOptions.includes(upper)) {
+                currencyOptions.push(upper);
+            }
+        }
+
+        currencyInput.value = ((selectedCurrency || currencyOptions[0] || "AUD")).toUpperCase();
+        drawCurrencyDropdown("");
+
+        if (currencyDropdownReady) {
+            return;
+        }
+
+        // Opens the dropdown and filters
+        currencyInput.addEventListener("focus", function () {
+            dropdownMenu.classList.remove("hidden");
+            drawCurrencyDropdown(currencyInput.value);
+        });
+
+        // Filters the currency options as the user types
+        currencyInput.addEventListener("input", function () {
+            currencyInput.value = currencyInput.value.toUpperCase();
+            dropdownMenu.classList.remove("hidden");
+            drawCurrencyDropdown(currencyInput.value);
+        });
+
+        // Closes the dropdown if the user clicks outside
+        document.addEventListener("click", function (event) {
+            if (!dropdown.contains(event.target)) {
+                dropdownMenu.classList.add("hidden");
+            }
+        });
+
+        currencyDropdownReady = true;
+    }
+
+    async function loadProfile() {
+        // Wait until the data is collected before proceeding
+        const response = await fetch(profileEndpoint);
+        const data = await response.json();
+
+        // Prefill the form with the current user data
+        document.getElementById("first_name").value = data.first_name || "";
+        document.getElementById("last_name").value = data.last_name || "";
+        document.getElementById("address").value = data.address || "";
+        document.getElementById("country").value = data.country || "";
+        setupCurrencyDropdown(data.currency_options, data.currency);
+
+        document.getElementById("cgt-status").textContent =
+            data.cgt_enabled ? "CGT calculator: Enabled" : "CGT calculator: Disabled";
+    }
+
+    document.getElementById("profile-form").addEventListener("submit", async function (event) {
+        // Prevent the form from refreshing the page
+        event.preventDefault();
+
+        // Grab whatever is in the form, changed or not, then package it
+        const payload = {
+            first_name: document.getElementById("first_name").value,
+            last_name: document.getElementById("last_name").value,
+            address: document.getElementById("address").value,
+            country: document.getElementById("country").value,
+            currency: document.getElementById("currency").value
+        };
+
+        // Use a POST HTTP request to send our payload over
+        const response = await fetch(profileEndpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken")
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        const message = document.getElementById("message");
+
+        // Our HTTP request is all good
+        if (response.ok) {
+            // we update that empty message HTML tag to show success
+            message.textContent = data.message || "Profile updated successfully.";
+            message.className = "text-sm text-green-600";
+            document.getElementById("cgt-status").textContent =
+                data.cgt_enabled ? "CGT calculator: Enabled" : "CGT calculator: Disabled";
+        } else {
+            message.textContent = data.error || "Something went wrong.";
+            message.className = "text-sm text-red-600";
+        }
+    });
+
+    // For the delete account button
+    const deleteAccountMessage = document.getElementById("delete-account-message");
+    const deletePopup = document.getElementById("delete-account-popup");
+    const deleteButton = document.getElementById("delete-account-button");
+    const cancelDeleteButton = document.getElementById("cancel-delete-account-button");
+    const confirmDeleteButton = document.getElementById("confirm-delete-account-button");
+
+    deleteButton.addEventListener("click", function () {
+        deletePopup.classList.remove("hidden");
+    });
+
+    cancelDeleteButton.addEventListener("click", function () {
+        deletePopup.classList.add("hidden");
+    });
+
+    deletePopup.addEventListener("click", function (event) {
+        if (event.target === deletePopup) {
+            deletePopup.classList.add("hidden");
+        }
+    });
+
+    confirmDeleteButton.addEventListener("click", async function () {
+        const endpoint = deleteButton.dataset.endpoint;
+
+        confirmDeleteButton.disabled = true;
+        confirmDeleteButton.textContent = "Deleting...";
+        deleteButton.disabled = true;
+        deleteAccountMessage.textContent = "Deleting your account...";
+        deleteAccountMessage.className = "mt-4 text-sm";
+        let data = {};
+
+        try {
+            const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCookie("csrftoken")
+                }
+            });
+
+            data = await response.json();
+
+            if (response.ok) {
+                deleteAccountMessage.textContent = data.message || "Account deleted successfully.";
+                deleteAccountMessage.className = "mt-4 text-sm text-green-700";
+                window.location.assign(data.redirect_url || landingUrl);
+                return;
+            }
+            
+            deletePopup.classList.add("hidden");
+            deleteAccountMessage.textContent = data.error || "Account cannot be deleted.";
+            deleteAccountMessage.className = "mt-4 text-sm text-red-700";
+        } catch (error) {
+            deletePopup.classList.add("hidden");
+            deleteAccountMessage.textContent = data.error || "Account cannot be deleted.";
+            deleteAccountMessage.className = "mt-4 text-sm text-red-700";
+        } finally {
+            confirmDeleteButton.disabled = false;
+            confirmDeleteButton.textContent = "Yes, delete account";
+            deleteButton.disabled = false;
+        }
+    });
+
+    // Django protects POST requsts with CSRF protection, so we need to
+    // send the csrftoken based on the page's cookies so Django dont
+    // reject
+    function getCookie(name) {
+        const cookies = document.cookie.split(";");
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + "=")) {
+                return decodeURIComponent(cookie.substring(name.length + 1));
+            }
+        }
+        return "";
+    }
+
+    loadProfile();
+
+</script>
+{% endblock %}

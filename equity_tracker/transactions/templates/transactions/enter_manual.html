@@ -1,0 +1,664 @@
+{% extends "base.html" %}
+
+{% block secondary_nav_bar %}
+   
+    <span class="pt-2 px-4 text-gray-600">&gt;</span>
+    <a href="{% url 'transactions:create_transaction'%}"
+    class="text-base font-medium pt-2 hover:underline hover:text-indigo-600">
+        Create Transaction (Manual)
+    </a>
+{% endblock %}
+
+<!-- Tailwind css doesn't seem to offer colour customisation option for buttons so css is used. -->
+{% block content %}
+<style>
+    .transaction-option {
+        border: 2px solid rgb(209 213 219);
+        background-color: rgb(243 244 246);
+        color: rgb(55 65 81);
+    }
+
+    .transaction-option-buy-selected {
+        border-color: rgb(5 150 105);
+        background-color: rgb(209 250 229);
+        color: rgb(4 120 87);
+    }
+
+    .transaction-option-sell-selected {
+        border-color: rgb(225 29 72);
+        background-color: rgb(255 228 230);
+        color: rgb(190 24 93);
+    }
+
+    .ticker-suggestion-active {
+        background-color: rgb(239 246 255);
+    }
+
+    .ticker-suggestions-box {
+        max-height: 24rem;
+        overflow-y: auto;
+    }
+</style>
+<!-- 
+<div class="pt-8">
+    <span class="pl-8 pr-2 text-3xl font-bold">{{ portfolio.name }}</span>
+    <span class="text-3xl">Portfolio</span>
+</div> -->
+
+<body class="bg-gray-100 text-gray-900">
+    <div class="flex items-center justify-center px-4 pt-16">  
+        <div class="w-full max-w-xl bg-white mb-10 rounded-xl border-2 p-8">
+            <h1 class="text-3xl font-semibold mb-8 text-center ">Add trades manually</h1>
+            <form method="POST" enctype="multipart/form-data" novalidate id="disable-on-submit">
+                {% if success_message %}
+                <div class="rounded-lg border border-green-200 bg-green-50 p-4 text-green-800 mb-4">
+                    {{ success_message }}
+                </div>
+                {% endif %}
+
+                {% if error_message %}
+                <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 mb-4">
+                    {{ error_message }}
+                </div>
+                {% endif %}
+
+                {% csrf_token %}
+                
+                <label class="mt-4 font-medium" for="ticker-input">Ticker</label>
+                <p class="mt-1 text-sm text-gray-500">Enter an ASX ticker up to 5 characters long, for example CBA, BHP, or NAB.</p>
+                <div class="relative mt-2" id="ticker-autocomplete">
+                    <input
+                        id="ticker-input"
+                        name="ticker"
+                        class="border p-2 rounded w-full"
+                        placeholder="e.g. CBA, BHP, NAB"
+                        maxlength="5"
+                        autocomplete="off"
+                        spellcheck="false"
+                        aria-autocomplete="list"
+                        aria-controls="ticker-suggestions"
+                        aria-expanded="false"
+                        data-limit-reached="{{ limit_reached_for_new_tickers|yesno:'true,false' }}"
+                        data-tracked-tickers="{{ tracked_tickers|join:',' }}"
+                        value="{{ form_data.ticker|default:'' }}">
+                    <div
+                        id="ticker-suggestions"
+                        class="ticker-suggestions-box absolute left-0 right-0 z-10 mt-2 hidden rounded-lg border border-gray-200 bg-white shadow-lg"
+                        data-endpoint="{% url 'transactions:ticker_suggestions' %}"
+                        role="listbox"
+                    ></div>
+                </div>
+                <div id="ticker-limit-warning" class="mt-2 mb-4 hidden rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    You have reached the Free plan limit. <a href="{% url 'subscriptions-home' %}" class="font-semibold hover:underline">Upgrade your subscription</a> to add a new ticker.
+                </div>
+                {% if errors.ticker %}
+                <div class="mt-2 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    {{ errors.ticker }}
+                </div>
+                {% else %}
+                <div class="mb-4"></div>
+                {% endif %}
+                <div
+                    id="equity-limit-message"
+                    class="hidden mt-2 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+                ></div>
+
+                <span class="mt-4 font-medium">Portfolio</span>
+                <script id="all-portfolios" type="application/json">
+                    [
+                        {% for p in dropdown.portfolios %}
+                            {"id": "{{ p.id }}", "name": "{{ p.name }}"}{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                    ]
+                </script>
+
+
+                <select name="portfolio_id"
+                        class="border p-2 mt-2 mb-4 rounded w-full"
+                        {% if dropdown.locked %}disabled{% endif %}>
+                    {% for p in dropdown.portfolios %}
+                        <option value="{{ p.id }}"
+                            {% if p.id|stringformat:"s" == dropdown.selected|stringformat:"s" %}
+                                selected
+                            {% endif %}>
+                            {{ p.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                
+                <div id="portfolio-lock-message"
+                    class="hidden mt-2 mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                    Reminder: This equity belongs to portfolio "{{ dropdown.portfolios.0.name }}"
+                </div>
+
+                {% if dropdown.locked %}
+                    <input type="hidden" name="portfolio_id" value="{{ dropdown.selected }}">
+                {% endif %}
+
+
+
+                <span class="mt-4 font-medium">Transaction Type</span>
+
+                <div class="mt-2 mb-4 grid grid-cols-2 gap-4">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="transaction_type" value="BUY" class="sr-only" data-transaction-radio {% if form_data.transaction_type == 'BUY' %} checked{% endif %}>
+                        <div data-transaction-option="BUY" class="transaction-option rounded-lg px-6 py-4 text-center font-semibold transition">
+                            Buy
+                        </div>
+                    </label>
+
+                    <label class="cursor-pointer">
+                        <input type="radio" name="transaction_type" value="SELL" class="sr-only" data-transaction-radio {% if form_data.transaction_type == 'SELL' %} checked{% endif %}>
+                        <div data-transaction-option="SELL" class="transaction-option rounded-lg px-6 py-4 text-center font-semibold transition">
+                            Sell
+                        </div>
+                    </label>
+                </div>
+                {% if errors.transaction_type %}
+                <div class="mt-1 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    {{ errors.transaction_type }}
+                </div>
+                {% else %}
+                <div class="mb-4"></div>
+                {% endif %}
+
+                <span class="font-medium">Number of shares</span>
+                <input name="quantity" type="number" min="1" step="1" class="mt-2 border p-2 rounded w-full" placeholder="e.g. 100" value="{{ form_data.quantity|default:'' }}">
+                {% if errors.quantity %}
+                <div class="mt-1 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    {{ errors.quantity }}
+                </div>
+                {% else %}
+                <div class="mb-4"></div>
+                {% endif %}
+
+                <span class="mt-4 font-medium">Price per share (AUD)</span>
+                <p class="mt-1 text-sm text-gray-500">Enter the price in Australian dollars. The amount must be greater than $0.01 AUD.</p>
+                <input name="price" type="number" min="0.01" step="0.01" class="mt-2 border p-2 rounded w-full" placeholder="e.g. 12.34 AUD" value="{{ form_data.price|default:'' }}">
+                {% if errors.price %}
+                <div class="mt-1 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    {{ errors.price }}
+                </div>
+                {% else %}
+                <div class="mb-4"></div>
+                {% endif %}
+
+                <span class="font-medium">Transaction Date</span>
+                <input name="trade_date" type="date" class="border p-2 mt-2 rounded w-full" value="{{ form_data.trade_date|default:'' }}">
+                {% if errors.trade_date %}
+                <div class="mt-1 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    {{ errors.trade_date }}
+                </div>
+                {% else %}
+                <div class="mb-4"></div>
+                {% endif %}
+
+                {% if errors.portfolio %}
+                <div class="mt-1 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    {{ errors.portfolio }}
+                </div>
+                {% endif %}
+
+                <div class="pt-8 flex justify-between">                    
+                    <a 
+                        href="{% url 'dashboard' %}"
+                        class="px-8 bg-gray-500 text-white py-2 rounded-lg font-medium hover:bg-gray-700 transition">Cancel</a>
+
+                    <button 
+                        id="add-transaction-button"
+                        type="submit" 
+                        id="submit-button"
+                        class="px-8 bg-indigo-500 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition">
+                        Add
+                    </button>
+                </div>
+                
+                
+            </form>
+        </div>
+    </div>
+    
+    
+
+    
+</body>
+
+<script>
+    // <!-- Fancy button script to make the BUY/SELL buttons work -->
+    (function () {
+        const radios = document.querySelectorAll('[data-transaction-radio]');
+        const options = {
+            BUY: document.querySelector('[data-transaction-option="BUY"]'),
+            SELL: document.querySelector('[data-transaction-option="SELL"]'),
+        };
+
+        function setBaseStyles(option) {
+            option.classList.remove(
+                'transaction-option-buy-selected',
+                'transaction-option-sell-selected'
+            );
+        }
+
+        function updateTransactionTypeStyles() {
+            Object.values(options).forEach(setBaseStyles);
+
+            const selected = document.querySelector('[data-transaction-radio]:checked');
+            if (!selected) {
+                return;
+            }
+
+            const selectedOption = options[selected.value];
+
+            if (selected.value === 'BUY') {
+                selectedOption.classList.add('transaction-option-buy-selected');
+            } else if (selected.value === 'SELL') {
+                selectedOption.classList.add('transaction-option-sell-selected');
+            }
+        }
+
+        radios.forEach((radio) => {
+            radio.addEventListener('change', updateTransactionTypeStyles);
+        });
+
+        updateTransactionTypeStyles();
+    })();
+
+    // Function to show/hide the ticker limit warning message based on whether the user has reached the limit of
+    // equities in Free plan. Check if current typed ticker is already in the portfolio
+    function updateLimitWarning(tickerInput, tickerLimitWarning, limitReached, trackedTickers) {
+        if (!tickerLimitWarning) {
+            return;
+        }
+
+        if (!limitReached) {
+            tickerLimitWarning.classList.add("hidden");
+            return;
+        }
+
+        const typedTicker = tickerInput.value.trim().toUpperCase();
+        const isTrackedTicker = trackedTickers.has(typedTicker);
+        const shouldShowWarning = typedTicker.length >= 3 && !isTrackedTicker;
+        tickerLimitWarning.classList.toggle("hidden", !shouldShowWarning);
+    }
+
+    // Method for ticker auto-complete list
+    (function () {
+        const tickerInput = document.getElementById("ticker-input");
+        const suggestionsBox = document.getElementById("ticker-suggestions");
+        const autocomplete = document.getElementById("ticker-autocomplete");
+        const tickerLimitWarning = document.getElementById("ticker-limit-warning");
+
+        // If neither of the three elements exist, early exist
+        if (!tickerInput || !suggestionsBox || !autocomplete) {
+            return;
+        }
+
+        // the backend URL that the frontend calls to get ticker suggestions
+        const endpoint = suggestionsBox.dataset.endpoint;
+        const limitReached = tickerInput.dataset.limitReached === "true";
+        const trackedTickers = new Set(
+            (tickerInput.dataset.trackedTickers || "")
+                .split(",")
+                .map((ticker) => ticker.trim())
+                .filter((ticker) => ticker !== "")
+        );
+        let debounceTimer = null;
+        let abortController = null;
+        let activeIndex = -1;
+
+        // grabs all elements which represents a suitable ASX ticker in button form
+        function getSuggestionButtons() {
+            return Array.from(
+                suggestionsBox.querySelectorAll("[data-suggestion-option]")
+            );
+        }
+
+        function hideSuggestions() {
+            // hides the drop container visually
+            suggestionsBox.classList.add("hidden");
+            // removes all the suggestion buttons inside it
+            suggestionsBox.innerHTML = "";
+            // resets which suggestion is currently selected
+            activeIndex = -1;
+            // tells accessibility tools that the dropdown is closed
+            tickerInput.setAttribute("aria-expanded", "false");
+        }
+
+        // decides which suggestion in the dropdown is currently highlighted
+        function setActiveSuggestion(nextIndex) {
+            const buttons = getSuggestionButtons();
+
+            // no suggestions, return
+            if (!buttons.length) {
+                activeIndex = -1;
+                return;
+            }
+
+            // loop selection
+            if (nextIndex < 0) {
+                nextIndex = buttons.length - 1;
+            } else if (nextIndex >= buttons.length) {
+                nextIndex = 0;
+            }
+
+            // highlights the selected option
+            buttons.forEach((button, index) => {
+                const isActive = index === nextIndex;
+                button.classList.toggle("ticker-suggestion-active", isActive);
+                button.setAttribute("aria-selected", isActive ? "true" : "false");
+            });
+
+            activeIndex = nextIndex;
+            buttons[activeIndex].scrollIntoView({ block: "nearest" });
+        }
+
+        // when the user chooses a suggestion, input the value and hide the menu
+        function selectSuggestion(ticker) {
+            tickerInput.value = ticker;
+            updateLimitWarning(tickerInput, tickerLimitWarning, limitReached, trackedTickers);
+            hideSuggestions();
+            tickerInput.dispatchEvent(new Event("change", { bubbles: true }));
+            tickerInput.focus();
+        }
+
+        // shows the suggestions
+        function renderSuggestions(results) {
+            // default empty list
+            suggestionsBox.innerHTML = "";
+            activeIndex = -1;
+
+            // no results, return
+            if (!results.length) {
+                hideSuggestions();
+                return;
+            }
+
+            // for each matching ticker, make them into a suggestion button
+            results.forEach((result) => {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "block w-full border-b border-gray-100 px-4 py-3 text-left transition last:border-b-0 hover:bg-blue-50";
+                button.dataset.suggestionOption = result.ticker;
+                button.setAttribute("role", "option");
+                button.setAttribute("aria-selected", "false");
+                const tickerLine = document.createElement("div");
+                tickerLine.className = "font-semibold text-gray-900";
+                tickerLine.textContent = result.ticker;
+
+                const nameLine = document.createElement("div");
+                nameLine.className = "text-sm text-gray-500";
+                nameLine.textContent = result.name;
+
+                button.appendChild(tickerLine);
+                button.appendChild(nameLine);
+                button.addEventListener("mousedown", (event) => {
+                    event.preventDefault();
+                });
+                button.addEventListener("click", () => {
+                    selectSuggestion(result.ticker);
+                });
+                suggestionsBox.appendChild(button);
+            });
+
+            suggestionsBox.classList.remove("hidden");
+            tickerInput.setAttribute("aria-expanded", "true");
+        }
+
+        // grabs the matching tickers from the typed value
+        async function fetchSuggestions(query) {
+            // if theres an older request still running, cancel it
+            if (abortController) {
+                abortController.abort();
+            }
+
+            // new controller for the new request
+            abortController = new AbortController();
+
+            // builds a url like /transactions/ticker-suggestions/?q=CB where CB = user input so far
+            try {
+                // then sends a GET request using fetch(), encodeURIComponent just makes the typed text url-safe
+                const response = await fetch(
+                    `${endpoint}?q=${encodeURIComponent(query)}`,
+                    {
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                        // connects the request to the abort controller
+                        signal: abortController.signal,
+                    }
+                );
+
+                // Backend gives error, so we throw error object
+                if (!response.ok) {
+                    throw new Error("Failed to fetch ticker suggestions.");
+                }
+
+                // parse the JSON response
+                const data = await response.json();
+                renderSuggestions(data.results || []);
+            } catch (error) {
+                // ignore if intentionally cancelled, otherwise hide the dropdown
+                if (error.name !== "AbortError") {
+                    hideSuggestions();
+                }
+            }
+        }
+
+        // Runs whenever the user types, deletes, or pastes text
+        tickerInput.addEventListener("input", () => {
+            // Forces uppercase and clean it
+            tickerInput.value = tickerInput.value.toUpperCase();
+            const query = tickerInput.value.trim();
+            updateLimitWarning(tickerInput, tickerLimitWarning, limitReached, trackedTickers);
+
+            window.clearTimeout(debounceTimer);
+
+            // Nothing typed yet, hide dropdown
+            if (!query) {
+                hideSuggestions();
+                return;
+            }
+
+            // debounce so the backend isnt gettting a request for every single keystroke instantly
+            debounceTimer = window.setTimeout(() => {
+                fetchSuggestions(query);
+            }, 180);
+        });
+
+        // handles the use of arrow keys to navigate suggestion dropdown
+        tickerInput.addEventListener("keydown", (event) => {
+            const buttons = getSuggestionButtons();
+
+            if (!buttons.length) {
+                return;
+            }
+
+            if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setActiveSuggestion(activeIndex + 1);
+            } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setActiveSuggestion(activeIndex - 1);
+            } else if (event.key === "Enter" && activeIndex >= 0) {
+                event.preventDefault();
+                selectSuggestion(buttons[activeIndex].dataset.suggestionOption);
+            } else if (event.key === "Escape") {
+                hideSuggestions();
+            }
+        });
+
+        document.addEventListener("click", (event) => {
+            if (!autocomplete.contains(event.target)) {
+                hideSuggestions();
+            }
+        });
+
+        const form = tickerInput.closest("form");
+        if (form) {
+            form.addEventListener("submit", (event) => {
+                const typedTicker = tickerInput.value.trim().toUpperCase();
+                if (
+                    limitReached
+                    && typedTicker.length >= 3
+                    && !trackedTickers.has(typedTicker)
+                ) {
+                    event.preventDefault();
+                    updateLimitWarning(tickerInput, tickerLimitWarning, limitReached, trackedTickers);
+                    tickerInput.focus();
+                }
+            });
+        }
+
+        updateLimitWarning(tickerInput, tickerLimitWarning, limitReached, trackedTickers);
+    })();
+
+    (function () {
+        const form = document.querySelector("#disable-on-submit");
+
+        if (!form) {
+            return;
+        }
+        const submitButton = form.querySelector("#submit-button");
+
+        if (!submitButton) {
+            return;
+        }
+
+        form.addEventListener("submit", (event) => {
+            if (form.dataset.submitted === "true") {
+                event.preventDefault();
+                return;
+            }
+
+            form.dataset.submitted = "true";
+            submitButton.disabled = true;
+            submitButton.textContent = "Adding...";
+            submitButton.classList.add("cursor-not-allowed", "opacity-60");
+        });
+    })();
+    
+    document.addEventListener("DOMContentLoaded", () => {
+        const tickerInput = document.getElementById("ticker-input");
+        const transactionForm = tickerInput.closest("form");
+        const portfolioSelect = document.querySelector("select[name='portfolio_id']");
+        const addButton = document.getElementById("add-transaction-button");
+        const equityLimitMessage = document.getElementById("equity-limit-message");
+        const checkTickerPortfolioUrl = "{% url 'transactions:check_ticker_portfolio' %}";
+        // locking portfolio message render
+        const portfolioLockMessage = document.getElementById("portfolio-lock-message");
+        let equityLimitBlocked = false;
+
+        // disables the add button
+        function setAddButtonDisabled(isDisabled) {
+            addButton.disabled = isDisabled;
+            addButton.classList.toggle("bg-gray-300", isDisabled);
+            addButton.classList.toggle("text-gray-600", isDisabled);
+            addButton.classList.toggle("cursor-not-allowed", isDisabled);
+            addButton.classList.toggle("hover:bg-indigo-700", !isDisabled);
+            addButton.classList.toggle("bg-indigo-500", !isDisabled);
+            addButton.classList.toggle("text-white", !isDisabled);
+        }
+
+        function showEquityLimitError(message) {
+            equityLimitBlocked = true;
+            equityLimitMessage.textContent = message;
+            equityLimitMessage.classList.remove("hidden");
+            setAddButtonDisabled(true);
+        }
+
+        function clearEquityLimitError() {
+            equityLimitBlocked = false;
+            equityLimitMessage.textContent = "";
+            equityLimitMessage.classList.add("hidden");
+            setAddButtonDisabled(false);
+        }
+
+        transactionForm.addEventListener("submit", (event) => {
+            if (equityLimitBlocked) {
+                event.preventDefault();
+            }
+        });
+
+        tickerInput.addEventListener("change", () => {
+            const ticker = tickerInput.value.trim().toUpperCase();
+            if (!ticker) {
+                clearEquityLimitError();
+                return;
+            }
+
+            fetch(`${checkTickerPortfolioUrl}?ticker=${encodeURIComponent(ticker)}`)
+                .then(res => res.json())
+                .then(data => {
+                    // Toggle between showing and hiding the error depending if a free user has reached their equity limit
+                    if (data.equity_limit_reached) {
+                        showEquityLimitError(data.equity_limit_error || "Equity limit reached");
+                    } else {
+                        clearEquityLimitError();
+                    }
+
+                    if (data.exists) {
+                        // LOCK the dropdown
+                        portfolioSelect.innerHTML = `
+                            <option value="${data.portfolio_id}" selected>
+                                ${data.portfolio_name}
+                            </option>
+                        `;
+                        portfolioSelect.disabled = true;
+                        
+                        // show error message
+                        if (portfolioLockMessage) {
+                            portfolioLockMessage.textContent = `Reminder: Portfolio is automatically selected since this equity belongs to ${data.portfolio_name}.`;
+                            portfolioLockMessage.classList.remove("hidden");
+                        }
+
+                        // Insert hidden input
+                        let hidden = document.getElementById("forced-portfolio");
+                        if (!hidden) {
+                            hidden = document.createElement("input");
+                            hidden.type = "hidden";
+                            hidden.id = "forced-portfolio";
+                            hidden.name = "portfolio_id";
+                            document.querySelector("form").appendChild(hidden);
+                        }
+                        hidden.value = data.portfolio_id;
+
+                    } else {
+                        // UNLOCK the dropdown
+                        portfolioSelect.disabled = false;
+
+                        // Remove hidden input if exists
+                        const hidden = document.getElementById("forced-portfolio");
+                        if (hidden) hidden.remove();
+
+                        if (portfolioLockMessage) {
+                            portfolioLockMessage.classList.add("hidden");
+                            portfolioLockMessage.textContent = "";
+                        }
+
+                        // Restore full portfolio list
+                        const allPortfolios = JSON.parse(document.getElementById("all-portfolios").textContent);
+                        const currentSelected = portfolioSelect.value;
+
+                        portfolioSelect.innerHTML = "";
+                        allPortfolios.forEach(p => {
+                            const opt = document.createElement("option");
+                            opt.value = p.id;
+                            opt.textContent = p.name;
+
+                            if (String(p.id) === String(currentSelected)) {
+                                opt.selected = true;
+                            }
+                            portfolioSelect.appendChild(opt);
+                        });
+
+                    }
+                })
+                .catch(() => {
+                    clearEquityLimitError();
+                });
+        });
+    });
+
+</script>
+
+{% endblock %}

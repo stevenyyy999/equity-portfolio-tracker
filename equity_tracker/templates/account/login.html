@@ -1,0 +1,87 @@
+{% extends "allauth/layouts/entrance.html" %}
+{% load account socialaccount %}
+{% load static %}
+
+{% block allauth_card_width %}max-w-lg{% endblock %}
+{% block allauth_card_classes %}animate-fade-in{% endblock %}
+
+{% block allauth_content %}
+<style>
+    .login-form input[type="email"],
+    .login-form input[type="password"],
+    .login-form input[type="text"] {
+        width: 100%;
+        border-radius: 0.5rem;
+        border: 1px solid rgb(209 213 219);
+        padding: 0.5rem 0.75rem;
+        color: rgb(17 24 39);
+        background-color: white;
+    }
+
+    .login-form input[type="email"]:focus,
+    .login-form input[type="password"]:focus,
+    .login-form input[type="text"]:focus {
+        outline: none;
+        border-color: rgb(99 102 241);
+        box-shadow: 0 0 0 1px rgb(99 102 241);
+    }
+</style>
+
+<div class="mx-auto mb-8 max-w-md text-center">
+    <img src="{% static 'icons/example_logo_pie.jpg' %}" class="mx-auto mb-4 h-10 w-auto" alt="sample logo">
+    <h1 class="mt-2 text-2xl font-semibold text-gray-900">Welcome back! Sign in to continue</h1>
+    <p class="mt-3 text-sm text-gray-600">
+        New here?
+        <a href="{% url 'account_signup' %}" class="font-semibold text-indigo-600 hover:underline">Create an account</a>
+        to get started.
+    </p>
+</div>
+
+<form method="POST" class="login-form mx-auto max-w-md space-y-5"> 
+    {% csrf_token %}
+    <p class="text-red-600">
+        {{ form.non_field_errors|striptags }}
+    </p>
+    <div>
+        <label class="block text-sm font-medium mb-1">Email</label>
+        {{ form.login }}
+        <p class="text-red-600">
+            {{ form.login.errors}}
+        </p>
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium mb-1">Password</label>
+        {{ form.password }}
+        <p class="text-red-600">
+           {{ form.password.errors|striptags }}
+        </p>
+    </div>
+    
+    <div class="pt-6 pb-4 flex items-center justify-between">
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+            <!-- actual logic not implemented and not linked -->
+            <input type="checkbox" class="h-4 w-4">
+            <span>Remember me</span>
+        </label>
+        <p class="text-right">
+            <a href="{% url 'account_reset_password' %}" class="hover:text-indigo-600 hover:underline text-sm text-gray-600">Forgot password?</a>
+        </p>
+
+    </div>
+    <button type="submit"
+        class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
+        Sign In
+    </button>
+</form>
+
+<div class="py-5 text-center text-sm text-gray-500">or</div>
+
+<a href="{% provider_login_url 'google' %}"
+    class="mx-auto flex w-full max-w-md items-center justify-center rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50">
+    
+    <img src="{% static 'icons/google.svg' %}" class="h-6 w-6" alt="Google icon"> 
+    <span class="pl-4">Continue with Google</span>
+</a>
+
+{% endblock %}

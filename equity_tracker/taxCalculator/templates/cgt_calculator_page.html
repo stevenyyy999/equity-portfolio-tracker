@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block secondary_nav_bar %}
+<span class="pt-2 px-4 text-gray-600">&gt;</span>
+<a href="{% url 'cgt-calculator' %}" class="text-base font-medium pt-2 hover:underline hover:text-indigo-600"> CGT Calculator </a>
+{% endblock %}
+
+{% block content %}
+
+<style>
+    .cgt-form input[type="number"],
+    .cgt-form-dropdown {
+        width: 100%;
+        border-radius: 0.5rem;
+        border: 1px solid rgb(209 213 219);
+        padding: 0.5rem 0.75rem;
+        color: rgb(17 24 39);
+        background-color: white;
+    }
+
+    .cgt-form input[type="number"]:focus,
+    .cgt-form-dropdown:focus {
+        outline: none;
+        border-color: rgb(99 102 241);
+        box-shadow: 0 0 0 1px rgb(99 102 241);
+    }
+</style>
+
+{% if CGT_enabled %}
+
+<div class="w-full mx-auto lg:px-12 px-4 pt-5 pb-16 flex flex-col gap-8 animate-fade-in">
+    <div class="pt-3 flex justify-between items-end gap-6">
+        <div>
+            <div class="text-4xl font-semibold">Australian Capital Gain Tax (CGT) Calculator</div>
+            <p class="mt-2 text-base text-gray-500">
+                Capital Gains Tax (CGT) is the tax applied to the profit made when selling an investment, such as equities.
+                This calculator provides an <span class="underline">estimate</span> of the CGT payable.
+            </p>
+        </div>
+    </div>
+
+    <div class="max-w-3xl mx-auto w-full rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+        <form method="POST" action="{% url 'cgt-calculator' %}#cgt-results" class="cgt-form mx-auto max-w-2xl space-y-6">
+            {% csrf_token %}
+
+            <div class="px-4">
+                <label class="mb-3 block font-medium text-gray-700">Financial Year</label>
+                <div id="fy-dropdown" class="relative mb-4">
+                    <input type="hidden" id="fy-year" name="fy_year" value="{{ selected_fy|default:fy_years.0 }}">
+                    <button
+                        type="button"
+                        id="fy-dropdown-button"
+                        class="cgt-form-dropdown text-left flex items-center justify-between"
+                    >
+                        <span id="fy-dropdown-label">{{ selected_fy|default:fy_years.0 }}</span>
+                        <span class="text-gray-500">&#9662;</span>
+                    </button>
+                    <div
+                        id="fy-dropdown-menu"
+                        class="hidden absolute left-0 top-full z-50 mt-1 max-h-64 w-full overflow-y-auto rounded border bg-white shadow"
+                    >
+                        {% for fy in fy_years %}
+                        <button
+                            type="button"
+                            class="fy-option block w-full px-3 py-2 text-left hover:bg-gray-100"
+                            data-value="{{ fy }}"
+                        >
+                            {{ fy }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <label class="mb-3 block font-medium text-gray-700">Previous Year Capital Losses</label>
+                <input type="number" step="0.01" name="prev_losses" placeholder="0.00"
+                    value="{{ form_data.prev_losses|default:'0.00' }}">
+                {% if errors.prev_losses %}
+                <div class="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    {{ errors.prev_losses }}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="px-4">
+                <label class="mb-3 block font-medium text-gray-700">Taxable Income (Before Current Capital Gains)</label>
+                <p class="mb-3 text-sm text-gray-500">Enter your exact taxable income before adding the capital gains from
+                    the share sales being calculated on this page. The calculator will add the taxable capital gain itself
+                    when working out the extra tax.</p>
+                <input type="number" step="0.01" min="0" name="income"
+                    placeholder="e.g. 44000.00" value="{{ form_data.income|default:'' }}">
+                {% if errors.income %}
+                <div class="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    {{ errors.income }}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="flex justify-center">
+                <button class="center rounded-lg bg-yellow-400 px-12 py-3 text-lg font-medium transition hover:bg-yellow-600">Calculate
+                    CGT</button>
+            </div>
+
+        </form>
+
+        {% if capital_gains_tax is not None %}
+        <div id="cgt-results" class="mx-auto mt-8 mb-2 w-full scroll-mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg">
+            <div class="border-b border-gray-200 bg-gradient-to-r from-slate-50 via-white to-blue-50 px-6 py-5">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h2 class="text-2xl font-semibold text-gray-900">Results</h2>
+                        <div class="mt-3 flex items-center gap-3 text-sm text-gray-600">
+                            <span>Financial Year</span>
+                            <span class="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 font-medium text-blue-900">
+                                {{ fy_beginning|default:"2025" }}-{{ fy_end|default:"2026" }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <a href="{% url 'export_cgt_csv' %}?fy_year={{ selected_fy|urlencode }}&prev_losses={{ form_data.prev_losses|urlencode }}&income={{ form_data.income|urlencode }}"
+                        class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
+                        Export CGT Summary
+                    </a>
+                </div>
+            </div>
+
+            <div class="grid gap-4 p-6 md:grid-cols-3">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                    <div class="mb-4 h-1 w-12 rounded-full bg-slate-500"></div>
+                    <div class="text-sm font-medium uppercase tracking-wide text-slate-600">Net Capital Gain</div>
+                    <div class="mt-3 text-3xl font-semibold text-gray-900 tabular-nums">${{ current_net_capital_gain|floatformat:2 }}</div>
+                    <p class="mt-2 text-sm text-gray-500">Before the CGT discount is applied</p>
+                </div>
+
+                <div class="rounded-xl border border-blue-100 bg-blue-50 p-5">
+                    <div class="mb-4 h-1 w-12 rounded-full bg-blue-800"></div>
+                    <div class="text-sm font-medium uppercase tracking-wide text-blue-900">Capital Gains Tax</div>
+                    <div class="mt-3 text-3xl font-semibold text-blue-900 tabular-nums">${{ capital_gains_tax|floatformat:2 }}</div>
+                    <p class="mt-2 text-sm text-blue-800">Estimated extra tax payable from these gains</p>
+                </div>
+
+                <div class="rounded-xl border border-amber-100 bg-amber-50 p-5">
+                    <div class="mb-4 h-1 w-12 rounded-full bg-amber-500"></div>
+                    <div class="text-sm font-medium uppercase tracking-wide text-amber-900">Forward Losses</div>
+                    <div class="mt-3 text-3xl font-semibold text-gray-900 tabular-nums">${{ forward_losses|floatformat:2 }}</div>
+                    <p class="mt-2 text-sm text-amber-900">Capital losses available to carry into future years</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    //  Ensure dropdown opens downwards
+    const dropdown = document.getElementById("fy-dropdown");
+    const dropdownButton = document.getElementById("fy-dropdown-button");
+    const dropdownLabel = document.getElementById("fy-dropdown-label");
+    const dropdownMenu = document.getElementById("fy-dropdown-menu");
+    const fyInput = document.getElementById("fy-year");
+
+    if (dropdown && dropdownButton && dropdownLabel && dropdownMenu && fyInput) {
+        // Open/Close dropdown
+        dropdownButton.addEventListener("click", function () {
+            dropdownMenu.classList.toggle("hidden");
+        });
+
+        // Select FY
+        const options = dropdownMenu.querySelectorAll(".fy-option");
+        options.forEach(function (optionButton) {
+            optionButton.addEventListener("click", function () {
+                const value = optionButton.dataset.value;
+                fyInput.value = value;
+                dropdownLabel.textContent = value;
+                dropdownMenu.classList.add("hidden");
+            });
+        });
+
+        // Close dropdown box if click outside
+        document.addEventListener("click", function (event) {
+            if (!dropdown.contains(event.target)) {
+                dropdownMenu.classList.add("hidden");
+            }
+        });
+    }
+</script>
+{% else %}
+<div class="w-full mx-auto lg:px-12 px-4 pt-5 pb-16 animate-fade-in">
+    <div class="max-w-3xl mx-auto w-full rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+        <div class="px-4 flex flex-col items-center text-center">
+            <div class="flex flex-row gap-x-2">
+                <img src="{% static 'icons/round-report-problem.svg' %}" class="h-8 w-8" alt="Error icon">
+                <div class="text-2xl font-semibold mb-4">
+                    CGT calculator unavailable
+                </div>
+            </div>
+
+            <hr class="my-4 w-full border-gray-300">
+
+            <div class="text-gray-700 leading-relaxed mb-6">The Capital Gains Tax (CGT) calculator is only available for
+                Australian residents using <span class="font-medium">AUD</span> as their currency.
+                <div class="mb-6">
+                    <hr class="my-4 w-full border-gray-300">
+                    <div class="text-left font-medium mb-2">Your current profile settings:</div>
+                    <ul class="text-left text-gray-900 space-y-1">
+                        <li>&bull; Country: <span class="font-medium">{{ country }}</span></li>
+                        <li>&bull; Currency: <span class="font-medium">{{ currency }}</span></li>
+                    </ul>
+                </div>
+                <hr class="my-4 w-full  border-gray-300">
+                <p class="text-gray-600 mt-8 mb-8">To enable the CGT calculator, please update your personal details below.
+                </p>
+
+                <a href="{% url 'account-profile' %}"
+                    class="inline-block rounded-lg bg-blue-900 px-5 py-3 text-white font-medium hover:bg-blue-800">Update
+                    Personal Details</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

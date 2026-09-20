@@ -1,0 +1,737 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block secondary_nav_bar %}
+<span class="pt-2 px-4 text-gray-600">&gt;</span>
+<a href="{% url 'portfolio_detail' portfolio.id %}" class="text-base font-medium pt-2 hover:underline hover:text-indigo-600">
+    Portfolio: {{ portfolio.name }}</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="w-full mx-auto lg:px-12 px-4 pt-5 pb-16">
+    <div class="pt-3">
+        <div class="flex items-center gap-3">
+            <span class="text-4xl font-bold">{{ portfolio.name }}</span>
+            <span class="text-4xl">Portfolio</span>
+        </div>
+        {% if portfolio.description %}
+            <p class="text-gray-600 mt-2">{{ portfolio.description }}</p>
+        {% endif %}
+    </div>
+
+    {% if messages %}
+    <div class="pt-6">
+        {% for message in messages %}
+        {% if "transaction-success" in message.tags %}
+        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800">
+            {{ message }}
+        </div>
+        {% endif %}
+        {% if "equity-delete-success" in message.tags %}
+        <div id="equity-delete-success-popup"
+            class="fixed right-8 bottom-8 z-50 rounded-lg border border-green-200 bg-green-50 px-5 py-4 text-green-800 shadow-lg">
+            {{ message }}
+        </div>
+        {% endif %}
+        {% if "transaction-delete-success" in message.tags %}
+        <div id="transaction-delete-success-popup"
+            class="fixed right-8 bottom-8 z-50 rounded-lg border border-green-200 bg-green-50 px-5 py-4 text-green-800 shadow-lg">
+            {{ message }}
+        </div>
+        {% endif %}
+        {% if message.tags == 'error' %}
+        <div id="transaction-delete-fail-popup"
+            class="fixed right-8 bottom-8 z-50 rounded-lg border border-red-200 bg-red-50 px-5 py-4 text-red-800 shadow-lg">
+            {{ message }}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main statistic cards -->
+    {% if has_trades %}
+<div class="grid gap-6 py-6 animate-fade-in md:grid-cols-2">
+    <div class="rounded-xl border border-gray-300 p-6 shadow-lg">
+        <div class="mb-4 h-1 w-14 rounded-full bg-blue-800"></div>
+        <div class="uppercase text-base font-semibold">Current Portfolio Value</div>
+        <div class="text-4xl font-semibold">{{ portfolio.current_value_display }}</div>
+    </div>
+    <div class="rounded-xl border border-gray-300 p-6 shadow-lg animate-fade-in">
+        <div class="mb-4 h-1 w-14 rounded-full {% if portfolio.profit >= 0 %}bg-green-500{% else %}bg-red-500{% endif %}"></div>
+        <div class="uppercase text-base font-semibold">Total Profit / Loss</div>
+        <div class="text-4xl font-semibold {% if portfolio.profit >= 0 %}text-green-500{% else %}text-red-500{% endif %}">
+            {{ portfolio.profit_display }}
+        </div>
+        <div class="mt-1 text-lg font-medium {% if portfolio.profit >= 0 %}text-green-500{% else %}text-red-500{% endif %}">
+            {% if portfolio.profit_percent is not None %}
+                ({{ portfolio.profit_percent_display }} {% if portfolio.profit >= 0 %}&#9650;{% else %}&#9660;{% endif %})
+            {% else %}
+                {{ portfolio.profit_percent_display }}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="grid gap-6 py-6 animate-fade-in lg:grid-cols-3">
+    <!-- Pie chart -->
+    <div class="rounded-2xl bg-white p-6 shadow-lg border border-4 border-gray-300 lg:col-span-1">
+        <div class="mb-5">
+            <h2 class="text-2xl font-semibold text-gray-900">Breakdown</h2>
+            <p class="mt-1 text-sm text-gray-500">See how your portfolio is distributed across your current holdings.</p>
+        </div>
+        {% if chart_tickers %}
+            <div class="mx-auto w-full max-w-md">
+                <canvas id="portfolioPieChart"></canvas>
+            </div>
+        {% else %}
+            <div class="flex min-h-72 items-center justify-center rounded-xl bg-gray-50 px-4 text-center text-sm text-gray-500">
+                Add more holdings to see the allocation chart.
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Equities list -->
+    <div class="rounded-2xl bg-white p-6 shadow-lg border border-4 border-gray-300 lg:col-span-2">
+        <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h2 class="text-2xl font-semibold text-gray-900">Equities</h2>
+                <p class="mt-1 text-sm text-gray-500">Review your shares, average purchase price, latest price, and gains/losses.</p>
+            </div>
+            <a href="{% url 'export_portfolio_holdings_csv' portfolio.id %}"
+               class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
+                Export Holdings CSV
+            </a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-[720px] w-full text-left">
+                <thead>
+                    <tr class="border-b bg-blue-900 text-white">
+                        <th class="p-3 rounded-tl-lg">Equity</th>
+                        <th class="p-3 text-right">Quantity</th>
+                        <th class="p-3 text-right">Avg Buy Price</th>
+                        <th class="p-3 text-right">Closing Price</th>
+                        <th class="p-3 text-right">Gain</th>
+                        <th class="p-3 rounded-tr-lg text-right"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Shows one row per currently held equity -->
+                    {% for equity_row in equity_rows %}
+                    <tr class="border-b last:border-b-0 cursor-pointer transition hover:bg-gray-50"
+                    onclick="openEquityPopup(
+                        '{{ portfolio.name|escapejs }}', 
+                        '{{ equity_row.equity.ticker|escapejs }}', 
+                        '{{ equity_row.equity.name|escapejs }}', 
+                        '{{ equity_row.current_value_display|escapejs }}',
+                        '{{ equity_row.gain_display|escapejs }}',
+                        '{{ portfolio.id }}',
+                        '{{ equity_row.equity.id }}',
+                        '{{ equity_row.closing_price_display|escapejs }}',
+                        '{{ equity_row.quantity }}',
+                        '{{ equity_row.last_pulled_formatted|escapejs }}',
+                        '{{ equity_row.closing_price_update_url|escapejs }}',
+                        '{% url 'equity_price_his' equity_row.equity.ticker %}'
+                    )">
+                        <td class="p-2 align-top" title="{{ equity_row.equity }}">
+                            <div class="font-medium text-gray-900">{{ equity_row.equity.ticker }}</div>
+                            {% if equity_row.equity.name %}
+                                <div class="mt-1 text-sm text-gray-500">{{ equity_row.equity.name }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="p-2 text-right whitespace-nowrap text-gray-900">{{ equity_row.quantity }}</td>
+                        <td class="p-2 text-right whitespace-nowrap text-gray-700">{{ equity_row.average_buy_price_display }}</td>
+                        <td class="p-2 text-right whitespace-nowrap text-gray-700" {% if equity_row.closing_price_needs_refresh %} data-closing-price-cell
+                            data-equity-ticker="{{ equity_row.equity.ticker }}"
+                            data-update-url="{{ equity_row.closing_price_update_url }}" {% endif %}>
+                            {{ equity_row.closing_price_display }}
+                        </td>
+                        <td class="p-3 text-right">
+                            <div class="flex flex-col items-end {{ equity_row.gain_class }}"
+                                data-equity-gain-display
+                                {% if equity_row.closing_price_needs_refresh and equity_row.average_buy_price_value %}
+                                data-equity-gain-cell
+                                data-avg-buy-price="{{ equity_row.average_buy_price_value }}"
+                                data-net-quantity="{{ equity_row.quantity }}"
+                                {% endif %}
+                            >
+                                {{ equity_row.gain_display }}
+                            </div>
+                        </td>
+                        <td class="p-3 text-right text-sm font-semibold text-gray-400">View</td>
+                    </tr>
+                    <!-- No equities holding -->
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-6 text-center text-gray-500">No current equity holdings yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Transactions table -->
+<div class="pb-8 animate-fade-in">
+    <div class="rounded-2xl bg-white p-6 shadow-lg border border-4 border-gray-300">
+        <span class="text-2xl font-semibold">Recent transactions</span>
+        <div class="overflow-x-auto">
+            <table class="mt-4 min-w-[880px] w-full">
+                <thead>
+                    <tr class="border-b bg-gray-100 text-left font-semibold text-gray-600">
+                        <th class="px-4 py-4 whitespace-nowrap rounded-tl-lg">Ticker</th>
+                        <th class="px-4 py-4 whitespace-nowrap">Type</th>
+                        <th class="px-4 py-4 whitespace-nowrap">Quantity</th>
+                        <th class="px-4 py-4 whitespace-nowrap">Trade Price</th>
+                        <th class="px-4 py-4 whitespace-nowrap">Closing Price</th>
+                        <th class="px-4 py-4 whitespace-nowrap rounded-tr-lg">Gain</th>
+                        <th class="px-4 py-4"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trade in trades %}
+                    <tr class="border-b">
+                        <td class="px-4 whitespace-nowrap" title="{{ trade.equity }}">{{ trade.equity.ticker }}</td>
+                        <td
+                            class="px-4 whitespace-nowrap {% if trade.transaction_type == 'BUY' %}text-green-600{% else %}text-red-600{% endif %}">
+                            {{ trade.transaction_type }}
+                        </td>
+                        <td class="px-4 whitespace-nowrap">{{ trade.quantity }}</td>
+                        <td class="px-4 whitespace-nowrap">{{ trade.trade_price_display }}</td>
+                        <td class="px-4 whitespace-nowrap" {% if trade.closing_price_needs_refresh %} data-closing-price-cell
+                            data-equity-ticker="{{ trade.equity.ticker }}"
+                            data-update-url="{{ trade.closing_price_update_url }}" {% endif %}>
+                            {{ trade.closing_price_display }}
+                        </td>
+                        <td class="px-4 whitespace-nowrap">
+                            <span class="whitespace-nowrap {{ trade.gain_class }}" data-gain-cell
+                                data-trade-price="{{ trade.trade_price_value }}" data-trade-quantity="{{ trade.quantity }}"
+                                data-transaction-type="{{ trade.transaction_type }}"
+                                data-matched-cost-total="{{ trade.matched_cost_total }}">
+                                {{ trade.gain_display }}
+                            </span>
+                        </td>
+                        <td class="py-3 text-right">
+                            <form method="POST" action="{% url 'transactions:delete_transaction_data' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="transaction_id" value="{{ trade.id }}">
+                                <button type="submit" aria-label="Delete transaction" class="inline-flex rounded-full pt-3 p-2 transition hover:bg-red-50">
+                                    <img src="{% static 'icons/bin-line-red.svg' %}" class="pb-1 h-6 w-6 inline" alt="delete icon">
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 'Add a Transaction' button -->
+        <button onclick="document.getElementById('addTransactionModal').classList.remove('hidden')"
+            class="fixed bottom-8 right-8 bg-blue-700 text-white px-5 py-3 rounded-full shadow-lg hover:bg-blue-800 transition z-40">
+            + Add Transaction
+        </button>
+
+        {% include "transactions/add_transaction_popup.html" with transaction_portfolio=portfolio %}
+    </div>
+</div>
+{% else %}
+<!-- if user doesn't have equity, -->
+<div class="w-full mx-auto lg:px-12 px-4 py-16 flex flex-col items-center animate-fade-in">
+    <div class="flex flex-col items-center">
+
+        <div class="text-3xl font-semibold text-gray-600 text-center">
+            Start building your portfolio
+        </div>
+
+        <p class="text-gray-500 mt-2 text-center">
+            Add your first trade to see your investments here.
+        </p>
+    </div>
+
+    <div class="max-w-7xl flex flex-col md:flex-row pb-5 pt-7 gap-10 justify-between px-4 w-full">
+
+        <!-- Upload CSV card -->
+        <a href="{% url 'transactions:upload_transactions_csv' portfolio.id %}"
+            class="rounded-xl border-4 border-blue-900 flex-1 p-6 text-center flex flex-col justify-between hover:bg-blue-50 transition-all duration-200 ease-in-out transform hover:scale-105 hover:shadow-2xl cursor-pointer">
+            <div class="pt-2 text-2xl font-bold text-blue-900">
+                Upload a CSV file →
+            </div>
+
+            <p class="mx-10 mt-5 text-lg text-gray-600">Upload a CSV file with individual trades or opening balances for
+                multiple holdings</p>
+
+            <div class="h-32 flex p-1 m-10 items-center">
+                <img src="{% static 'icons/upload_csv.svg' %}" class="h-full w-full">
+            </div>
+        </a>
+
+        <!-- Enter details manually card -->
+        <a href="{% url 'transactions:create_transaction' portfolio.id %}"
+            class="rounded-xl border-4 border-blue-900 flex-1 p-6 text-center flex flex-col justify-between hover:bg-blue-50 transition-all duration-200 ease-in-out transform hover:scale-105 hover:shadow-2xl cursor-pointer">
+            <div class="pt-2 text-2xl font-bold text-blue-900">
+                Enter details manually →
+            </div>
+
+            <p class="mx-10 mt-5 text-lg text-gray-600">Enter details for the trades that you bought/sold</p>
+
+            <div class="h-32 flex p-1 m-10 items-center">
+                <img src="{% static 'icons/manual_entry.svg' %}" class="h-full w-full">
+            </div>
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- popup showing historical prices for the equity -->
+{% include "equity_detail_popup.html" %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
+<!-- JS to fetch closing prices after the page has loaded. Finds every Closing Price cell that says Retrieving and grabs closing price -->
+<script>
+    // Immediately runs upon page load
+    (function () {
+        const displayCurrency = "{{ display_currency|escapejs }}";
+
+        function formatMoney(amount) {
+            const symbols = {
+                AUD: "A$",
+                USD: "US$",
+                EUR: "€",
+                CNY: "¥",
+                JPY: "¥",
+                GBP: "£",
+                INR: "₹",
+                CAD: "C$",
+                CHF: "CHF ",
+                NZD: "NZ$",
+                BRL: "R$",
+                RUB: "₽",
+                KRW: "₩",
+                MXN: "Mex$",
+                IDR: "Rp",
+                TRY: "₺",
+                SAR: "﷼",
+                AED: "د.إ",
+                ZAR: "R",
+                SEK: "kr",
+                NOK: "kr",
+                DKK: "kr",
+                PLN: "zł",
+                THB: "฿",
+                MYR: "RM",
+                PHP: "₱",
+                VND: "₫",
+                EGP: "E£",
+                NGN: "₦",
+                PKR: "₨",
+                BDT: "৳",
+                ILS: "₪",
+                ARS: "$",
+                CLP: "$",
+                COP: "$",
+                PEN: "S/",
+            };
+            const symbol = symbols[displayCurrency] || `${displayCurrency} `;
+            return `${symbol}${Number(amount).toFixed(2)}`;
+        }
+
+        function formatSignedMoney(amount) {
+            const sign = amount >= 0 ? "+" : "-";
+            return `${sign}${formatMoney(Math.abs(amount))}`;
+        }
+        window.portfolioFormatMoney = formatMoney;
+
+        // Helper to format text (SELL flips it so selling above the close reads as a gain)
+        function formatGainDisplay(closingPrice, tradePrice, tradeQuantity, transactionType, matchedCostTotal) {
+            let gainTotal;
+            let gainPercent;
+            if (transactionType === "SELL") {
+                gainTotal = (tradePrice * tradeQuantity) - matchedCostTotal;
+                if (matchedCostTotal === 0) {
+                    gainPercent = 0;
+                } else {
+                    gainPercent = (gainTotal / matchedCostTotal) * 100;
+                }
+            } else {
+                gainTotal = (closingPrice - tradePrice) * tradeQuantity;
+                if (tradePrice === 0) {
+                    gainPercent = 0;
+                } else {
+                    gainPercent = ((closingPrice / tradePrice) - 1) * 100;
+                }
+            }
+
+            let arrow;
+            if (gainTotal >= 0) {
+                arrow = "\u25B2";
+            } else {
+                arrow = "\u25BC";
+            }
+            const absolutePercent = Math.abs(gainPercent).toFixed(2);
+            return `${formatSignedMoney(gainTotal)} (${absolutePercent}% ${arrow})`;
+        }
+
+        function renderExistingEquityGainDisplay(gainCell) {
+            const displayText = gainCell.textContent.trim();
+            const match = displayText.match(/^(.*?)\s+\((.*?)\)$/);
+            if (!match) {
+                return;
+            }
+
+            gainCell.innerHTML = `
+                <div class="whitespace-nowrap font-medium">${match[1].trim()}</div>
+                <div class="mt-1 whitespace-nowrap text-sm">${match[2].trim()}</div>
+            `;
+        }
+
+        // Helper to get the gains of a cell
+        function updateGainCell(gainCell, closingPrice) {
+            // Grabs the transaction info stored on the HTML element itself
+            const tradePrice = Number(gainCell.dataset.tradePrice);
+            const tradeQuantity = Number(gainCell.dataset.tradeQuantity);
+            const matchedCostTotal = Number(gainCell.dataset.matchedCostTotal);
+            let transactionType = gainCell.dataset.transactionType;
+            if (!transactionType) {
+                transactionType = "BUY";
+            }
+
+            // If HTML data is broken, display error
+            if (Number.isNaN(tradePrice) || Number.isNaN(tradeQuantity)) {
+                gainCell.textContent = "Error";
+                gainCell.classList.remove("text-green-500", "text-red-500");
+                gainCell.classList.add("text-gray-500");
+                return;
+            }
+            if (transactionType === "SELL" && Number.isNaN(matchedCostTotal)) {
+                gainCell.textContent = "Error";
+                gainCell.classList.remove("text-green-500", "text-red-500");
+                gainCell.classList.add("text-gray-500");
+                return;
+            }
+
+            // OK, recalculate the gain using the latest closing price and update the text
+            let gainTotal;
+            if (transactionType === "SELL") {
+                gainTotal = (tradePrice * tradeQuantity) - matchedCostTotal;
+            } else {
+                gainTotal = (closingPrice - tradePrice) * tradeQuantity;
+            }
+            gainCell.textContent = formatGainDisplay(
+                closingPrice,
+                tradePrice,
+                tradeQuantity,
+                transactionType,
+                matchedCostTotal,
+            );
+            gainCell.classList.remove("text-gray-500", "text-green-500", "text-red-500");
+            if (gainTotal >= 0) {
+                gainCell.classList.add("text-green-500");
+            } else {
+                gainCell.classList.add("text-red-500");
+            }
+        }
+
+        // Gains = (Current Price - Average Price) * Holding Quantity
+        function updateEquityGainCell(gainCell, closingPrice) {
+            const averageBuyPrice = Number(gainCell.dataset.avgBuyPrice);
+            const netQuantity = Number(gainCell.dataset.netQuantity);
+
+            // Catch error if no averageBuyPrice
+            if (Number.isNaN(averageBuyPrice) || Number.isNaN(netQuantity)) {
+                gainCell.textContent = "Error";
+                gainCell.classList.remove("text-green-500", "text-red-500");
+                gainCell.classList.add("text-gray-500");
+                return;
+            }
+
+            const gainTotal = (closingPrice - averageBuyPrice) * netQuantity;
+            gainCell.textContent = formatGainDisplay(
+                closingPrice,
+                averageBuyPrice,
+                netQuantity,
+                "BUY",
+            );
+            renderExistingEquityGainDisplay(gainCell);
+            gainCell.classList.remove("text-gray-500", "text-green-500", "text-red-500");
+            if (gainTotal >= 0) {
+                gainCell.classList.add("text-green-500");
+            } else {
+                gainCell.classList.add("text-red-500");
+            }
+        }
+
+        // Updates all gain cells in the row (trade and equity gain cells)
+        function updateGainsForRow(priceCell, closingPrice) {
+            const row = priceCell.closest("tr");
+            if (!row) {
+                return;
+            }
+
+            const tradeGain = row.querySelector("[data-gain-cell]");
+            if (tradeGain) {
+                updateGainCell(tradeGain, closingPrice);
+            }
+            const equityGain = row.querySelector("[data-equity-gain-cell]");
+            if (equityGain) {
+                updateEquityGainCell(equityGain, closingPrice);
+            }
+        }
+
+        document.querySelectorAll("[data-equity-gain-display]").forEach((gainCell) => {
+            renderExistingEquityGainDisplay(gainCell);
+        });
+
+        // If yfinance price fetch fails, set all gain cells to error
+        function setRowGainError(priceCell) {
+            const row = priceCell.closest("tr");
+            if (!row) {
+                return;
+            }
+
+            const gainCells = row.querySelectorAll("[data-gain-cell], [data-equity-gain-cell]");
+            gainCells.forEach((gainCell) => {
+                gainCell.textContent = "Error";
+                gainCell.classList.remove("text-green-500", "text-red-500");
+                gainCell.classList.add("text-gray-500");
+            });
+    }
+
+        // Grab cells marked for background refresh
+        const priceCells = Array.from(document.querySelectorAll("[data-closing-price-cell]"));
+
+        // Nothing to update, OK
+        if (!priceCells.length) {
+            return;
+        }
+
+        // Group cells by ticker
+        const tickerCells = new Map();
+
+        priceCells.forEach((cell) => {
+            const ticker = cell.dataset.equityTicker;
+            if (!tickerCells.has(ticker)) {
+                tickerCells.set(ticker, []);
+            }
+            tickerCells.get(ticker).push(cell);
+        });
+
+        // Fetch prices one ticker at a time so we don't get rate limited by Yahoo Finance
+        const tickerEntries = Array.from(tickerCells.entries());
+        const MAX_RETRIES = 3;
+
+        function sleep(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+        }
+
+        // Tries to fetch the closing price for one ticker, retries on 429 with backoff
+        async function fetchWithRetry(updateUrl, attempt) {
+            const response = await fetch(updateUrl, {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            });
+
+            // If rate limited and we still have retries, wait longer each time and try again
+            if (response.status === 429 && attempt < MAX_RETRIES) {
+                const waitSeconds = 3 * Math.pow(2, attempt);
+                await sleep(waitSeconds * 1000);
+                return fetchWithRetry(updateUrl, attempt + 1);
+            }
+
+            const data = await response.json();
+            if (!response.ok || !data.display_closing_price) {
+                throw new Error(data.error || "Failed to retrieve closing price.");
+            }
+
+            return {
+                displayPrice: data.display_closing_price,
+                closingPrice: Number(data.closing_price),
+            };
+        }
+
+        async function fetchPricesSequentially() {
+            for (let i = 0; i < tickerEntries.length; i++) {
+                const [ticker, cells] = tickerEntries[i];
+                const updateUrl = cells[0].dataset.updateUrl;
+
+                try {
+                    const { displayPrice, closingPrice } = await fetchWithRetry(updateUrl, 0);
+
+                    cells.forEach((cell) => {
+                        cell.textContent = displayPrice;
+                        updateGainsForRow(cell, closingPrice);
+                    });
+
+                } catch (err) {
+                    cells.forEach((cell) => {
+                        cell.textContent = "Error";
+                        setRowGainError(cell);
+                    });
+                }
+
+                // Small delay between tickers to avoid hitting Yahoo Finance rate limits
+                if (i < tickerEntries.length - 1) {
+                    await sleep(1500);
+                }
+            }
+        }
+
+        fetchPricesSequentially();
+    })();
+
+    const MIN_PIE_DATALABEL_PERCENT = 6;
+
+    function getPieSlicePercentage(dataset, dataIndex) {
+        const total = dataset.data.reduce(
+            (sum, item) => sum + Number(item || 0),
+            0,
+        );
+
+        if (total <= 0) {
+            return 0;
+        }
+
+        return (Number(dataset.data[dataIndex] || 0) / total) * 100;
+    }
+
+    const canvas = document.getElementById('portfolioPieChart');
+    if (canvas) {
+        new Chart(canvas, {
+            type: 'pie',
+            data: {
+                labels: {{ chart_tickers|safe }},
+                datasets: [{
+                    data: {{ chart_values|safe }},
+                    backgroundColor: [
+                        '#334e91',
+                        '#5a9cf8', 
+                        '#4bbf73', 
+                        '#e3a008', 
+                        '#e35d5d',
+                        '#7c83f3', 
+                        '#3db7cc', 
+                        '#9acb3c', 
+                        '#f28c4c', 
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 16,
+                            font: { size: 13 },
+                            usePointStyle: true,
+                            pointStyleWidth: 10,
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const pct = getPieSlicePercentage(
+                                    ctx.dataset,
+                                    ctx.dataIndex,
+                                ).toFixed(1);
+                                return ` ${ctx.label}: ${window.portfolioFormatMoney(ctx.parsed)} (${pct}%)`;
+                            }
+                        }
+                    },
+
+                    datalabels: {
+                        color: '#fff',
+                        clamp: true,
+                        clip: true,
+                        display: (context) => {
+                            return (
+                                getPieSlicePercentage(
+                                    context.dataset,
+                                    context.dataIndex,
+                                ) >= MIN_PIE_DATALABEL_PERCENT
+                            );
+                        },
+                        font: {
+                            weight: 'bold',
+                            size: 12
+                        },
+                        formatter: (value, context) => {
+                            const percentage = getPieSlicePercentage(
+                                context.dataset,
+                                context.dataIndex,
+                            ).toFixed(1);
+                            return percentage + '%';
+                        }
+                    }
+                }
+            }, 
+
+            plugins: [ChartDataLabels]
+        });
+    }
+
+    const equityDeletePopup = document.getElementById("equity-delete-success-popup");
+    if (equityDeletePopup) {
+        window.setTimeout(() => {
+            equityDeletePopup.remove();
+        }, 3500);
+    }
+
+    const transactionDeleteSuccPopup = document.getElementById("transaction-delete-success-popup");
+    if (transactionDeleteSuccPopup) {
+        window.setTimeout(() => {
+            transactionDeleteSuccPopup.remove();
+        }, 3500);
+    }
+
+    const transactionDeleteFailPopup = document.getElementById("transaction-delete-fail-popup");
+    if (transactionDeleteFailPopup) {
+        window.setTimeout(() => {
+            transactionDeleteFailPopup.remove();
+        }, 3500);
+    }
+
+    function toggleMoveEquityForm() {
+        const form = document.getElementById("move-equity-form");
+        const errorBox = document.getElementById("move-equity-error");
+        const select = document.getElementById("target_portfolio_id");
+
+        form.classList.toggle("hidden");
+
+        if (errorBox) {
+            errorBox.classList.add("hidden");
+            errorBox.textContent = "";
+        }
+
+        if (select) {
+            select.value = "";
+        }
+    }
+
+    const moveEquityForm = document.getElementById("move-equity-form");
+    if (moveEquityForm) {
+        moveEquityForm.addEventListener("submit", function (event) {
+            const targetPortfolioSelect = document.getElementById("target_portfolio_id");
+            const errorBox = document.getElementById("move-equity-error");
+
+            if (!targetPortfolioSelect.value) {
+                event.preventDefault();
+                errorBox.textContent = "Please select a target portfolio.";
+                errorBox.classList.remove("hidden");
+                return;
+            }
+
+            errorBox.classList.add("hidden");
+            errorBox.textContent = "";
+        });
+    }
+
+</script>
+
+{% endblock %}

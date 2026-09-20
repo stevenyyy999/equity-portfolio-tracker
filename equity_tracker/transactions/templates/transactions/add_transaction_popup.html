@@ -1,0 +1,53 @@
+{% load static %}
+
+<div id="addTransactionModal"
+    class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+    onclick="if(event.target===this) this.classList.add('hidden')">
+
+    <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold text-blue-900">Add a Transaction</h2>
+            <button type="button"
+                onclick="document.getElementById('addTransactionModal').classList.add('hidden')"
+                class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="flex flex-col gap-4">
+            {% if transaction_portfolio %}
+                <a href="{% url 'transactions:upload_transactions_csv' transaction_portfolio.id %}"
+                    class="flex items-center gap-4 p-5 rounded-xl border-2 border-blue-900 hover:bg-blue-50 transition cursor-pointer group">
+            {% else %}
+                <a href="{% url 'transactions:upload_transactions_csv' %}"
+                    class="flex items-center gap-4 p-5 rounded-xl border-2 border-blue-900 hover:bg-blue-50 transition cursor-pointer group">
+            {% endif %}
+                <div class="h-12 w-12 flex-shrink-0 flex items-center justify-center">
+                    <img src="{% static 'icons/upload_csv.svg' %}" class="h-full w-full object-contain" alt="upload csv icon">
+                </div>
+                <div>
+                    <div class="font-bold text-blue-900 text-base">Upload a CSV file &rarr;</div>
+                    <div class="text-sm text-gray-500 mt-0.5">
+                        Upload a CSV file with individual trades or opening balances for multiple holdings
+                    </div>
+                </div>
+            </a>
+
+            {% if transaction_portfolio %}
+                <a href="{% url 'transactions:create_transaction' transaction_portfolio.id %}"
+                    class="flex items-center gap-4 p-5 rounded-xl border-2 border-blue-900 hover:bg-blue-50 transition cursor-pointer group">
+            {% else %}
+                <a href="{% url 'transactions:create_transaction' %}"
+                    class="flex items-center gap-4 p-5 rounded-xl border-2 border-blue-900 hover:bg-blue-50 transition cursor-pointer group">
+            {% endif %}
+                <div class="h-12 w-12 flex-shrink-0 flex items-center justify-center">
+                    <img src="{% static 'icons/manual_entry.svg' %}" class="h-full w-full object-contain" alt="manual entry icon">
+                </div>
+                <div>
+                    <div class="font-bold text-blue-900 text-base">Enter details manually &rarr;</div>
+                    <div class="text-sm text-gray-500 mt-0.5">
+                        Enter details for the trade that you bought or sold
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>

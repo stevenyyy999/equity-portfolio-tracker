@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block secondary_nav_bar %}
+    <span class="pt-2 px-4 text-gray-600">&gt;</span>
+    <a href="{% url 'portfolio_settings' portfolio_id %}" class="text-base font-medium pt-2 hover:text-indigo-600 hover:underline">Portfolio settings: {{ portfolio.name}}</a>
+{% endblock %}
+
+{% block content %}
+<div>
+    <div class="pt-8 px-8 flex justify-between">
+        <span class="pr-2 text-3xl">Portfolio Settings</span>
+    </div>
+    
+</div>
+
+<div class="max-w-3xl mx-auto mt-10 rounded border border-gray-200 mb-10 bg-white p-8 shadow-sm animate-fade-in">
+    
+    <form method="POST" action="{% url 'portfolio_settings' portfolio_id %}" class="space-y-5"> 
+        {% csrf_token %}
+        <div>
+            <div class="block text-xl font-medium mb-6" >Change Portfolio Details</div>
+            <label class="block text-sm font-medium mb-1">Portfolio Name</label>
+            <input type="text" name="name" value="{{ portfolio.name|default:'' }}" placeholder="max=100char" class="w-full rounded border p-2">
+            {% if errors.name %}
+            <p class="mt-1 text-sm text-red-600">{{ errors.name }}</p>
+            {% endif %}
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium mb-1">Description (optional)</label>
+            <textarea name="description" class="w-full resize-none rounded border p-2" placeholder="max=255char">{{ portfolio.description|default:'' }}</textarea>
+            {% if errors.description %}
+            <p class="mt-1 text-sm text-red-600">{{ errors.description }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="pt-4 flex justify-between">                    
+            <a 
+                href="{% url 'dashboard' %}"
+                class="px-16 bg-gray-300 py-3 rounded-lg font-medium hover:bg-gray-500 transition">Cancel</a>
+
+            <button type="submit"
+                class="px-8 bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
+                Apply changes 
+            </button>
+        </div>
+
+    </form>
+        
+    {% if not portfolio.is_default %}
+        <div class="pt-4 flex justify-end">
+            <form method="POST" action="{% url 'set_default_portfolio' portfolio_id %}">
+                {% csrf_token %}
+                <button type="submit"
+                    class="text-indigo-600 font-medium py-3">
+                    Set as Default
+                </button>
+            </form>
+        </div>
+
+        <hr class="mt-8 mb-6 w-full  border-gray-300">
+        <div class="text-red-600 text-lg font-semibold">Danger Zone</div>
+        <hr class="mt-3 w-full  border-gray-160">
+
+        <div class="flex flex-row gap-x-2 flex justify-between">
+            <span class="mt-3 text-gray-700">Deleting this portfolio is permanent, and cannot be undone.</span>
+            <button type="button" 
+                    class="px-6 bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-700 transition mt-4"
+                    onclick="openDeletePortfolioPopup('{{ portfolio.name|escapejs }}')"
+            >
+                <img src="{% static 'icons/bin-line.svg' %}" class="pb-1 h-6 w-6 inline " alt="delete icon">
+                <span>Delete this Portfolio</span> 
+            </button> 
+        </div>
+    {% else %}
+        <hr class="mt-8 mb-6 w-full  border-gray-300">
+        <div class="text-red-600 text-lg font-semibold">Danger Zone</div>
+        <hr class="mt-3 w-full  border-gray-160">
+
+        <div class="flex flex-row gap-x-2 flex justify-between">
+            <span class="mt-3 text-gray-700">This is your default portfolio and cannot be deleted</span>
+        </div>
+    {% endif %}
+</div>
+
+
+
+<div id="delete_portfolio_popup"
+     class="fixed bg-black bg-opacity-50 inset-0 justify-center flex items-center hidden">
+    <div class="bg-white rounded shadow-lg m-48 w-auto relative animate-fade-in">
+        <div class="pt-6 px-6 flex justify-end">
+            <div id="close_delete_portfolio_popup" class="text-right">X</div>
+        </div>
+        <span class="pr-2 text-3xl text-center block pt-2 pb-4"> Delete Portfolio?</span>
+        <hr class="my-4 mx-8 w-auto border-gray-300">
+
+        <div class="px-8 pt-4">
+            <span class="inline">Are you sure you want to delete '</span>
+            <div id="portfolio_name" class="text-black inline font-semibold"></div>
+            <span class="inline">'?</span>
+            
+            <span class="py-4 block pb-1">Deleting this portfolio will move all related equities and transactions to the Default portfolio.</span>
+            <span class="py-4 block">This action cannot be undone. </span>
+        </div>
+        
+        
+        <hr class="my-4 mx-8 w-auto border-gray-300">
+
+        <!-- add confirmation later -->
+        <form action="{% url 'delete_portfolio_data' %}" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="portfolio_id" value="{{ portfolio_id }}">
+            <div class="px-8 pb-8 flex justify-between">
+                <div id="cancel_delete_portfolio" class="px-6 bg-gray-300 py-2 rounded-lg font-medium hover:bg-gray-500 transition mt-4">
+                    Cancel
+                </div>
+                <button type="submit" class="px-6 bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition mt-4">
+                    <span>Delete</span> 
+                </button> 
+            </div>
+            
+        </form>
+     </div>
+     
+
+</div>
+
+<script>
+    function openDeletePortfolioPopup(portfolioName) {
+        document.getElementById("delete_portfolio_popup").classList.remove("hidden");
+        document.getElementById("portfolio_name").textContent = portfolioName;
+    }
+
+    document.getElementById("close_delete_portfolio_popup").addEventListener("click", () => {
+        document.getElementById("delete_portfolio_popup").classList.add("hidden");
+
+    });
+
+    document.getElementById("cancel_delete_portfolio").addEventListener("click", () => {
+        document.getElementById("delete_portfolio_popup").classList.add("hidden");
+
+    });
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "navbar.html" %}
+
+{% block content %}
+
+{% if transactions %}
+    <ul class="bg-white rounded-xl border p-6 space-y-3">
+        {% for t in transactions %}
+            <li class="border-b pb-2">
+                <span class="font-semibold">{{ t.equity.ticker }}</span>
+                — {{ t.transaction_type }}
+                — {{ t.quantity }} shares
+                @ ${{ t.price }}
+                on {{ t.trade_date }}
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p class="text-gray-500">No trades yet.</p>
+{% endif %}
+
+{% endblock %}

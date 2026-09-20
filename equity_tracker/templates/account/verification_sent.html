@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex items-center justify-center">
+    <div class="max-w-xl mx-auto mt-10 rounded-lg border border-gray-200 bg-white p-10 shadow-sm text-center animate-fade-in">
+                
+        <h1 class="text-2xl font-bold mb-3">Please Verify your Email</h1>
+        <h3 class="text-xl font-medium mb-3">Check your inbox</h3>
+        
+        <p class="text-gray-600 mb-6">
+            We sent a verification link to your email address. Click the link to activate your account.
+        </p>
+
+        <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-500 mb-6">
+            Can't find it? Check your <strong>spam folder</strong> or wait a few minutes.
+        </div>
+
+        <a href="{% url 'account_login' %}" 
+           class="inline-block px-8 bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
+            Back to Login
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+<!-- base html structure. all pages extend from this file -->
+<!DOCTYPE html>
+<html lang="en" class="overscroll-none">
+    <head>
+        <meta charset="utf-8">
+        {% load static %}
+        <title>{% block title %}Equity Portfolio Tracker{% endblock %}</title>
+        <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+    </head>
+
+    <body class="bg-gray-50 min-h-screen flex flex-col">
+        
+        {% include "navbar.html" %}
+        {% if user.is_authenticated %}
+        <nav class="fixed w-full mt-20 mx-auto bg-gray-200 shadow-md z-20">
+            <div class="max-w-6xl h-12 px-8 pb-2 flex items-center gap-2 text-sm text-gray-700 ">
+                <a href="{% url 'dashboard' %}" class="text-4xl hover:text-indigo-600 hover:underline transition">
+                    ⌂
+                </a>
+                {% block secondary_nav_bar %}{% endblock %}
+            </div>
+        </nav>
+        {% endif %}
+
+        <main class="flex-1 {% if user.is_authenticated %}pt-32{% else %}pt-20{% endif %}">
+            {% block content %}{% endblock %}
+        </main>
+
+        <script>
+            // When refreshing page, takes user to the very top of the screen
+            window.history.scrollRestoration = "manual";
+            window.scrollTo(0, 0);
+        </script>
+    </body>
+</html>

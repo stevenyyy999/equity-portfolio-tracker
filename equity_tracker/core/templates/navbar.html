@@ -1,0 +1,163 @@
+<!-- main header + secondary navigation header + account popup logic -->
+{% load static %}
+<nav class="fixed top-0 left-0 w-full z-30 bg-white border-b border-gray-200 shadow-sm">
+    <div class="h-20 mx-auto px-4 py-4 sm:px-8 sm:py-6 flex items-center justify-between gap-3 shadow-sm">
+
+        {% if user.is_authenticated %}
+
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div class="flex items-center shrink-0">
+                <a href="{% url 'dashboard' %}">
+                    <img src="{% static 'icons/example_logo.jpg' %}" class="h-10 w-auto object-cover sm:pr-8 sm:h-16" alt="sample logo">
+                </a>
+            </div>
+
+            <div class="ml-1 sm:ml-3 shrink-0">
+                <!-- Includes temporary case where using the debug button will also update the label -->
+                {% if subscription.status == "active" or local_subscription.name == "premium" %}
+                    {% if product.name == "Premium" %}
+                        <span class="whitespace-nowrap bg-yellow-400 text-center rounded-2xl text-xs sm:text-xl font-semibold px-3 py-1.5 sm:px-6 sm:py-2">Premium &#9813;</span>
+                    <!-- This is for debugging purposes -->
+                    {% elif local_subscription.name == "premium" %}
+                        <span class="whitespace-nowrap bg-yellow-400 text-center rounded-2xl text-xs sm:text-xl font-semibold px-3 py-1.5 sm:px-6 sm:py-2">Premium &#9813;</span>
+                    {% endif %}
+                {% else %}
+                    <a href="{% url 'subscriptions-home' %}"
+                        class="group inline-block rounded-2xl px-3 py-1.5 text-xs sm:text-xl font-semibold text-white bg-blue-900 transition duration-200 hover:bg-yellow-400 hover:text-black hover:scale-105 sm:px-6 sm:py-2">
+                        <span class="group-hover:hidden">Free</span>
+                        <span class="hidden group-hover:inline">Upgrade to Premium</span>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="hidden xl:flex items-center gap-6 ml-auto">
+            <a href="{% url 'features' %}" class="text-gray-600 text-lg hover:text-indigo-900 transition">Features</a>
+            <a href="{% url 'cgt-calculator' %}" class="text-gray-600 text-lg hover:text-indigo-900 transition">CGT Calculator</a>
+            <a href="{% url 'transactions:transactions_history' %}" class="text-gray-600 text-lg hover:text-indigo-900 transition">Transactions History</a>
+
+            <div class="relative flex items-center text-gray-700 text-lg border border-gray-200 bg-gray-100 rounded-lg">
+                <a href="{% url 'dashboard' %}" class="px-6 py-2 hover:text-indigo-600 transition hover:bg-gray-200">Dashboard</a>
+            </div>
+        </div>
+
+        <div class="flex xl:hidden items-center gap-2 ml-auto">
+            <div class="relative flex items-center text-gray-700 text-sm border border-gray-200 sm:text-lg bg-gray-100 rounded-lg">
+                <a href="{% url 'dashboard' %}" class="px-4 py-2 sm:px-6 hover:text-indigo-600 transition hover:bg-gray-200">Dashboard</a>
+            </div>
+
+            <div class="relative">
+                <button id="nav_menu_button" class="flex items-center justify-center h-10 w-10 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition" aria-label="Open navigation menu">
+                    <img src="{% static 'icons/hamburger.svg' %}" class="h-5 w-5" alt="menu icon">
+                </button>
+
+                <div id="nav_menu_dropdown" class="hidden absolute right-0 top-full mt-2 w-56 rounded-xl border border-gray-200 bg-white shadow-lg p-2">
+                    <a href="{% url 'features' %}" class="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-indigo-900 transition">Features</a>
+                    <a href="{% url 'cgt-calculator' %}" class="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-indigo-900 transition">CGT Calculator</a>
+                    <a href="{% url 'transactions:transactions_history' %}" class="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-indigo-900 transition">Transactions History</a>
+                </div>
+            </div>
+        </div>
+
+        <button id="profile_button" class="pl-1 sm:pl-8 shrink-0">
+            <div class="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gray-100 flex items-center justify-center transition">
+                <img src="{% static 'icons/account.svg' %}" class="h-6 w-6 sm:h-8 sm:w-8" alt="profile icon">
+            </div>
+        </button>
+
+        {% else %}
+
+        <!-- Logged out -->
+        <div class="flex items-center min-w-0">
+            <div class="flex items-center shrink-0">
+                <a href="{% url 'landing' %}">
+                    <img src="{% static 'icons/example_logo.jpg' %}" class="h-10 w-auto object-cover sm:pr-8 sm:h-16" alt="sample logo">
+                </a>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3 sm:gap-6 ml-auto shrink-0">
+            <a href="{% url 'account_signup' %}" class="whitespace-nowrap text-sm sm:text-xl text-gray-700 hover:text-indigo-600 transition">Sign Up</a>
+            <a href="{% url 'account_login' %}" class="whitespace-nowrap text-sm sm:text-xl font-medium text-white bg-blue-900 px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-full hover:bg-blue-800 transition">Sign In</a>
+        </div>
+        {% endif %}
+    </div>
+
+</nav>
+
+<!-- Settings popup -->
+<div id="popup_box" class="bg-blue-900 hidden text-lg fixed top-20 right-2 sm:right-0 w-[calc(100%-1rem)] sm:w-80 max-w-80 rounded-lg p-5 z-40">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-full bg-white bg-opacity-10 flex items-center justify-center text-white text-sm font-medium">
+                {{ user.username|first|upper }}
+            </div>
+            <div>   
+                <div class="text-white text-xl font-medium leading-tight">{{ user.first_name }} {{ user.last_name }}</div>
+                <div class="text-white opacity-90 text-lg leading-tight">{{ user.email }}</div>
+            </div>
+        </div>
+
+        <button id="close_popup_box" class="fixed top-24 right-6 sm:right-8 text-white hover:text-gray-300 text-2xl leading-none transition">&times;</button>
+    </div>
+
+    <div class="border-t border-white opacity-70 mb-2"></div>
+
+    <!-- List -->
+    <div class="flex flex-col text-white text-lg">
+        <a href="{% url 'account-profile' %}" class="px-2 py-2.5 rounded-md hover:bg-white hover:bg-opacity-10 transition">Update personal details</a>
+        <a href="{% url 'account_reset_password' %}" class="px-2 py-2.5 rounded-md hover:bg-white hover:bg-opacity-10 transition">Change password</a>
+        <a href="{% url 'subscriptions-home' %}" class="px-2 py-2.5 rounded-md hover:bg-white hover:bg-opacity-10 transition">Plans & billing</a>
+    </div>
+
+    <div class="border-t border-white opacity-70 mt-2 mb-3"></div>
+
+    <a href="{% url 'account_logout' %}" class="block bg-yellow-400 text-gray-900 font-medium text-lg text-center py-2.5 rounded-lg hover:bg-yellow-500 transition">
+        Log out
+    </a>
+</div>
+
+<!-- popup open/close -->
+<script>
+    const profile_button = document.getElementById("profile_button");
+    const profile_popup = document.getElementById("popup_box");
+    const close_popup = document.getElementById("close_popup_box");
+    const nav_menu_button = document.getElementById("nav_menu_button");
+    const nav_menu_dropdown = document.getElementById("nav_menu_dropdown");
+
+    if (profile_button) {
+        profile_button.addEventListener("click", () => {
+            profile_popup.classList.toggle("hidden");
+        });
+    }
+
+    if (close_popup) {
+        close_popup.addEventListener("click", () => {
+            profile_popup.classList.add("hidden");
+        });
+    }
+
+    if (profile_button && profile_popup) {
+        document.addEventListener("click", (event) => {
+            const clicked_inside_profile = profile_popup.contains(event.target) || profile_button.contains(event.target);
+            if (!clicked_inside_profile) {
+                profile_popup.classList.add("hidden");
+            }
+        });
+    }
+
+    if (nav_menu_button && nav_menu_dropdown) {
+        nav_menu_button.addEventListener("click", () => {
+            nav_menu_dropdown.classList.toggle("hidden");
+        });
+
+        document.addEventListener("click", (event) => {
+            const clicked_inside_menu = nav_menu_dropdown.contains(event.target) || nav_menu_button.contains(event.target);
+            if (!clicked_inside_menu) {
+                nav_menu_dropdown.classList.add("hidden");
+            }
+        });
+    }
+</script>

@@ -1,0 +1,96 @@
+{% extends "allauth/layouts/entrance.html" %}
+{% load account socialaccount %}
+{% load static %}
+
+{% block allauth_card_width %}max-w-lg{% endblock %}
+{% block allauth_card_classes %}animate-fade-in{% endblock %}
+
+{% block allauth_content %}
+<style>
+    .signup-form input[type="email"],
+    .signup-form input[type="password"],
+    .signup-form input[type="text"] {
+        width: 100%;
+        border-radius: 0.5rem;
+        border: 1px solid rgb(209 213 219);
+        padding: 0.5rem 0.75rem;
+        color: rgb(17 24 39);
+        background-color: white;
+    }
+
+    .signup-form input[type="email"]:focus,
+    .signup-form input[type="password"]:focus,
+    .signup-form input[type="text"]:focus {
+        outline: none;
+        border-color: rgb(99 102 241);
+        box-shadow: 0 0 0 1px rgb(99 102 241);
+    }
+</style>
+
+<div class="mx-auto mb-8 max-w-md text-center">
+    <img src="{% static 'icons/example_logo_pie.jpg' %}" class="mx-auto mb-4 h-10 w-auto" alt="sample logo">
+    <h1 class="mt-2 text-2xl font-semibold text-gray-900">Create an account</h1>
+    <p class="mt-3 text-sm text-gray-600">
+        Already have an account?
+        <a href="{% url 'account_login' %}" class="font-semibold text-indigo-600 hover:underline">Sign in</a>
+    </p>
+</div>
+
+<form method="POST" class="signup-form mx-auto max-w-md space-y-5" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        {{ form.non_field_errors|striptags }}
+    </div>
+    {% endif %}
+    <div>
+        <label for="{{ form.email.id_for_label }}" class="mb-1 block font-medium text-gray-700">Email</label>
+        {{ form.email }}
+        {% if form.email.errors %}
+        <div class="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            {{ form.email.errors|striptags }}
+        </div>
+        {% endif %}
+    </div>
+    <div>
+        <label for="{{ form.password1.id_for_label }}" class="mb-1 block font-medium text-gray-700">Password</label>
+        {{ form.password1 }}
+        {% if form.password1.errors %}
+        <div class="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            {{ form.password1.errors|striptags }}
+        </div>
+        {% endif %}
+    </div>
+    <div>
+        <label for="{{ form.password2.id_for_label }}" class="mb-1 block font-medium text-gray-700">Re-enter Password</label>
+        {{ form.password2 }}
+        {% if form.password2.errors %}
+        <div class="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            {{ form.password2.errors|striptags }}
+        </div>
+        {% endif %}
+    </div>
+    <div class="space-y-1 rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <p class="text-sm text-gray-600">* Your password can't be too similar 
+            to your other personal information</p>
+        <p class="text-sm text-gray-600">* Your password must contain at least 8 characters</p>
+        <p class="text-sm text-gray-600">* Your password can't be a commonly used password</p>
+        <p class="text-sm text-gray-600">* Your password can't be entirely numeric</p>
+
+    </div>
+    <button type="submit"
+        class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
+        Create Account
+    </button>
+</form>
+
+<div class="py-5 text-center text-sm text-gray-500">or</div>
+
+<a href="{% provider_login_url 'google' %}"
+    class="mx-auto flex w-full max-w-md items-center justify-center rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50">
+    
+    <img src="{% static 'icons/google.svg' %}" class="h-6 w-6" alt="Google icon"> 
+    <span class="pl-4">Continue with Google</span>
+</a>
+
+{% endblock %}

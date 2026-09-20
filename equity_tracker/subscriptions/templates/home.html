@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block secondary_nav_bar %}
+  <span class="pt-2 px-4 text-gray-600">&gt;</span>
+  <a href="{% url 'subscriptions-home' %}" class="text-base font-medium pt-2 hover:underline hover:text-indigo-600">Plans & Billing</a>
+{% endblock %}
+
+{% block content %}
+
+  <body class="mt-28 bg-gray-100 text-gray-900">
+    <div class="flex items-center justify-center px-4">  
+      <div class="w-full mt-8 max-w-xl mb-10 bg-white rounded-xl border-2 p-8">
+        <h1 class="text-3xl font-semibold mb-8 text-center">Plans and Billing</h1>
+
+        {% if subscription.status == "active" %}
+          <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Current Plan</h2>
+            <p class="font-medium text-gray-600 mb-8">
+              You are paying <span class="font-bold text-gray-900">${{ subscription_price|floatformat:2 }}/{{ billing_interval }}</span>
+            </p>
+            {% if product.name == "Premium" %}
+              <div class="pb-8 text-gray-600">Renews on: <p class="font-semibold text-gray-700">{{ expiry_date }}</p> </div>            {% endif %}
+            <div class="bg-yellow-400 p-8 rounded-lg border border-gray-200">
+              <div class="text-xl font-medium">{{ product.name }}</div>
+              <div class="pt-2 text-gray-600 mt-1">{{ product.description }}</div>
+            </div>
+            <a href="{% url 'stripe_dashboard' %}" class="mt-6 hover:text-indigo-600 hover:underline text-sm text-gray-600">View current subscription details →</a>
+          </div>
+
+        {% elif subscription.status == "canceled" %}
+          <div class="flex flex-col items-center">
+            <p class="mb-4 font-medium">Your Paid Plan has been canceled</p>
+            <p class="mb-8 font-medium">Upgrade again?</p>
+            <button 
+              type="submit" 
+              id="submitBtn"
+              class="px-6 py-2 text-center bg-yellow-400 hover:bg-yellow-500 text-black font-medium rounded-lg">
+              Upgrade to a paid plan ♕
+            </button>
+            <br>
+            <a href="{% url 'stripe_dashboard' %}" class="mt-6 hover:text-indigo-600 hover:underline text-sm text-gray-600">View current subscription details →</a>
+          </div>
+
+        {% else %}
+          <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Current Plan</h2>
+            <p class="font-medium text-gray-600 mb-8">
+              You are paying <span class="font-bold text-gray-900">${{ subscription_price|floatformat:2 }}/{{ billing_interval }}</span>
+            </p>
+            <div class="bg-gray-200 p-8 rounded-lg border border-gray-200">
+              <div class="text-xl font-medium">{{ local_subscription.name|capfirst }}</div>
+              <div class="pt-2 text-gray-600 mt-1">Equity Portfolio Tracker Subscription</div>
+            </div>
+            <p class="mt-12 mb-4 font-medium">Want to enjoy unlimited number of equities and portfolios?</p>
+            <button 
+              type="submit" 
+              id="submitBtn"
+              class="px-6 py-4 text-center bg-yellow-400 hover:bg-yellow-500 rounded-lg">
+              <p class="text-black font-medium">Upgrade to a paid plan ♕</p>
+            </button>
+          </div>
+
+        {% endif %}
+
+      </div> 
+    </div>       
+  </body>
+
+  <script src="https://js.stripe.com/v3/"></script>
+  <script
+    src="{% static 'main.js' %}"
+    data-stripe-config-url="{% url 'stripe_config' %}"
+    data-create-checkout-session-url="{% url 'create_checkout_session' %}"
+  ></script>
+
+{% endblock %}  <!-- this closes block content -->

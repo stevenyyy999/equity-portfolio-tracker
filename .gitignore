@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+db.sqlite3
+.env
+equity_tracker/.env
+.coverage
+coverage.xml
+htmlcov/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+tailwindCSS/
+.venv/
+venv/
